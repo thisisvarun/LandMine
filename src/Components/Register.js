@@ -1,15 +1,9 @@
 import React, { Component } from 'react'
-//import Input from '@material-ui/core/Input'
-//import InputLabel from '@material-ui/core/InputLabel'
-//import InputAdornment from '@material-ui/core/InputAdornment'
-//import FormControl from '@material-ui/core/FormControl'
 import TextField from '@material-ui/core/TextField'
-//import Grid from '@material-ui/core/Grid'
 import Button from '@material-ui/core/Button'
 import { Container } from '@material-ui/core'
 import SendIcon from '@material-ui/icons/Send'
 import axios from 'axios'
-//import { withRouter } from 'react-router-dom'
 import Land from '../abis/LandRegistry.json'
 import { withStyles } from '@material-ui/core/styles'
 
@@ -47,19 +41,17 @@ class Register extends Component {
     this.state = {
       name: '',
       email: '',
-      //   password: '',
       address: '',
       postalCode: '',
       city: '',
       contact: '',
-      // authenticated: false,
     }
   }
 
   componentDidMount = async () => {
     const web3 = window.web3
     const accounts = await web3.eth.getAccounts()
-    await window.localStorage.setItem('web3account', accounts[0])
+    window.localStorage.setItem('web3account', accounts[0])
     this.setState({ account: accounts[0] })
     const networkId = await web3.eth.net.getId()
     const LandData = Land.networks[networkId]
@@ -67,26 +59,25 @@ class Register extends Component {
       const landList = new web3.eth.Contract(Land.abi, LandData.address)
       this.setState({ landList })
     } else {
-      window.alert('Token contract not deployed to detected network.')
+      alert('Token contract not deployed to detected network.')
     }
     if (window.localStorage.getItem('authenticated') === 'true')
-      this.props.history.push('/dashboard')
+      window.location = '/dashboard'
   }
-  // validateEmail = (emailField) => {
-  //   var reg = /^([A-Za-z0-9_])+([A-Za-z0-9_])+([A-Za-z]{2,4})$/
-  //   if (reg.test(emailField) === false) {
-  //     return false
-  //   }
-  //   return true
-  // }
+
   handleChange = (name) => (event) => {
     this.setState({ [name]: event.target.value })
+  }
+
+  validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return re.test(String(email).toLowerCase())
   }
 
   login = async (data) => {
     await this.state.landList.methods
       .addUser(
-        data.address,
+        data.privateKey,
         data.name,
         data.contact,
         data.email,
@@ -94,156 +85,117 @@ class Register extends Component {
         data.city,
       )
       .send({ from: this.state.account, gas: 1000000 })
-      .on('receipt', function (receipt) {
-        // console.log(receipt)
-        if (!receipt) {
-          console.log('Could not add User. Please try again')
-        } else {
-          console.log('User has been added successfully!')
-          window.alert('User has been added successfully!')
+      .on('receipt', (receipt) => {
+        if (receipt) {
+          alert('User has been added successfully!')
           window.location = '/login'
+        } else {
+          alert('Could not add User. Please try again')
         }
       })
   }
 
   handleSubmit = async () => {
-    let data = {
-      name: this.state.name,
-      email: this.state.email,
-      contact: this.state.contact,
-      privateKey: this.state.address,
-      city: this.state.city,
-      postalCode: this.state.postalCode,
-    }
-    if (
-      this.state.name &&
-      this.state.email &&
-      this.state.contact &&
-      this.state.address &&
-      this.state.city &&
-      this.state.postalCode
-    ) {
-      // if (this.validateEmail(this.state.email)) {
-        axios.post('http://localhost:4000/signup', data).then(
-          (response) => {
-            if (response.status === 200) {
-              this.setState({
-                name: '',
-                email: '',
-                address: '',
-                postalCode: '',
-                city: '',
-                contact: '',
-              })
-            }
+    const { name, email, contact, address, city, postalCode } = this.state
 
-            try {
-              this.login(data)
-            } catch (error) {
-              console.log('error:', error)
-            }
-          },
-          (error) => {
-            this.setState({ loading: false })
-            alert('User already exist. Try with another email address')
-            this.setState({
-              name: '',
-              email: '',
-              address: '',
-              postalCode: '',
-              city: '',
-              contact: '',
-            })
-          },
-        )
-      // } else alert('Please, Enter correct Email address')
-    } else {
+    if (!name || !email || !contact || !address || !city || !postalCode) {
       alert('All fields are required')
+      return
+    }
+
+    if (!this.validateEmail(email)) {
+      alert('Please enter a valid email address')
+      return
+    }
+
+    const data = {
+      name,
+      email,
+      contact,
+      privateKey: address,
+      city,
+      postalCode,
+    }
+
+    try {
+      const response = await axios.post('http://localhost:4000/signup', data)
+      if (response.status === 200) {
+        this.setState({
+          name: '',
+          email: '',
+          address: '',
+          postalCode: '',
+          city: '',
+          contact: '',
+        })
+        this.login(data)
+      }
+    } catch (error) {
+      alert('User already exists. Try with another email address')
     }
   }
+
   render() {
     const { classes } = this.props
+    const { name, email, address, postalCode, city, contact } = this.state
+
     return (
       <div className="profile-bg">
         <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="register-text">Register Here</div>
           <div className="input">
             <TextField
-              id="standard-full-width"
-              type="name"
               label="Name"
               placeholder="Enter Your Name"
               fullWidth
-              value={this.state.name}
+              value={name}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('name')}
             />
             <TextField
-              id="standard-full-width"
-              type="email"
               label="Email Address"
               placeholder="Enter Your Email Address"
               fullWidth
-              value={this.state.email}
+              value={email}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('email')}
             />
             <TextField
-              id="standard-full-width"
-              type="contact"
               label="Contact Number"
               placeholder="Enter Your Contact Number"
               fullWidth
-              value={this.state.contact}
+              value={contact}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('contact')}
             />
             <TextField
-              id="standard-full-width"
-              type="address"
               label="Private Key"
               placeholder="Enter Your Private Key"
               fullWidth
-              value={this.state.address}
+              value={address}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('address')}
             />
             <TextField
-              id="standard-full-width"
-              type="city"
               label="City"
               placeholder="Enter Your City"
               fullWidth
-              value={this.state.city}
+              value={city}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('city')}
             />
             <TextField
-              id="standard-full-width"
-              type="postalCode"
               label="Postal Code"
               placeholder="Enter Your Postal Code"
               fullWidth
-              value={this.state.postalCode}
+              value={postalCode}
               margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               onChange={this.handleChange('postalCode')}
             />
           </div>
@@ -251,16 +203,14 @@ class Register extends Component {
             <Button
               variant="contained"
               color="primary"
-              endIcon={<SendIcon>submit</SendIcon>}
+              endIcon={<SendIcon />}
               onClick={this.handleSubmit}
             >
               Sign Up
             </Button>
           </div>
-          <div
-            style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}
-          >
-            Already have an account?{'   '}{' '}
+          <div style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}>
+            Already have an account?{' '}
             <a href="/login" style={{ color: '#328888' }}>
               Login here
             </a>
@@ -270,4 +220,5 @@ class Register extends Component {
     )
   }
 }
+
 export default withStyles(styles)(Register)
