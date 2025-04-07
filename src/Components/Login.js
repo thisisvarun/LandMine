@@ -74,28 +74,45 @@ class Login extends Component {
   };
 
   handleSubmit = async () => {
-    if (!this.validatePrivateKey()) return;
-
-    if (!window.ethereum) {
-      alert("Please install MetaMask!");
-      return;
-    }
-
+    const { username, password, privateKey } = this.state;
+  
+    this.setState({ loading: true });
+  
     try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (username === "admin" && password === "admin123") {
+        window.localStorage.setItem("govtAuthenticated", "true");
+        window.localStorage.setItem("authenticated", "true");
+        window.location = "/dashboard_govt";
+        return;
+      }
+  
+      if (!privateKey || !privateKey.startsWith("0x") || privateKey.length !== 66) {
+        this.setState({
+          privateKeyError: true,
+          privateKeyHelperText: "Invalid private key format.",
+        });
+        return;
+      }
+  
+      if (!window.ethereum) {
+        alert("Please install MetaMask!");
+        return;
+      }
+  
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       const account = accounts[0];
-
-      // Store login data
-      window.localStorage.setItem('authenticated', 'true');
-      window.localStorage.setItem('account', account);
-
-      // Redirect to dashboard
-      window.location = '/dashboard'; // Or wherever you want to redirect after successful login
+  
+      window.localStorage.setItem("authenticated", "true");
+      window.localStorage.setItem("account", account);
+      window.location = "/dashboard";
     } catch (error) {
       console.error("Login failed:", error);
-      alert("Login failed. Check console for details.");
+      alert("Login failed.");
+    } finally {
+      this.setState({ loading: false });
     }
   };
+  
 
 
   render() {
