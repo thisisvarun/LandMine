@@ -1,120 +1,104 @@
-const express = require('express')
-const router = express.Router()
-const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
-var User = require('../Model/User')
-var Govt = require('../Model/Government_Registrar')
-var sms = require('../Api/send_sms')
-var mail = require('../Api/send_mail')
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const config = require('../Config/db_config');
+const User = require('../Model/User');
+const Govt = require('../Model/Government_Registrar');
+
+// User Signup
 router.post('/signup', async (req, res) => {
-  const { email, name, contact, privateKey, city, postalCode } = req.body
+  const { email, name, contact, privateKey, city, postalCode, password } = req.body;
   try {
-    let user = await User.findOne({
-      email
-    })
+    let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({
-        message: 'User Already Exists',
-      })
+      return res.status(400).json({ message: 'User Already Exists' });
     }
 
-    user = new User({
+    const newUser = new User({
       email,
       name,
       contact,
       privateKey,
       city,
       postalCode,
-    })
+      password,
+    });
 
-    await user.save()
-    res.status(200).send('Thanks for registering!')
+    const salt = await bcrypt.genSalt(10);
+    newUser.password = await bcrypt.hash(password, salt);
+
+    await newUser.save();
+    res.status(200).send('Thanks for registering!');
   } catch (err) {
-    console.log(err.message)
-    res.status(500).send('Error in Saving')
+    console.log(err.message);
+    res.status(500).send('Error in Saving');
   }
-})
+});
 
+// Government Registrar Registration
 router.post('/register_govt', async (req, res) => {
-  // Insert details straight into MongoDB
-    try {
-      
-      const username="Delhi Government";
-      const password="Delhi";
-      const address="14, Darya Ganj , New Delhi";
-      const contact="01123392027"
-      const city="Delhi"
-      let user = new Govt({
+  try {
+    const { username, password, address, contact, city } = req.body;
+
+    let existing = await Govt.findOne({ username });
+    if (existing) {
+      return res.status(400).json({ message: 'Government User Already Exists' });
+    }
+
+    const govtUser = new Govt({
       username,
       password,
       address,
       contact,
       city,
-    })
-    const salt = await bcrypt.genSalt(10)
-    user.password = await bcrypt.hash(password, salt)
-    await user.save()
-    res.status(200).send('Thanks for registering!')
+    });
+
+    const salt = await bcrypt.genSalt(10);
+    govtUser.password = await bcrypt.hash(password, salt);
+
+    await govtUser.save();
+    res.status(200).send('Thanks for registering!');
   } catch (err) {
-    console.log(err.message)
-    res.status(500).send('Error in Saving')
-  }       
+    console.log(err.message);
+    res.status(500).send('Error in Saving');
+  }
 });
 
-
-router.post('/privatekeylogin', async (req, res)=> {
+// Private Key Login
+router.post('/privatekeylogin', async (req, res) => {
   try {
-    const privateKey = req.body.privateKey;
-    console.log(privateKey)
-  const result = await User.find({privateKey: privateKey})
-  if(result.length > 0){
-    res.status(200).json({msg:"Login successfully",result: result[0]})
-  }
-  else{
-    res.status(200).json("Private key does not exist")
-  }
-    
+    const { privateKey } = req.body;
+    const user = await User.findOne({ privateKey });
+
+    if (user) {
+      res.status(200).json({ msg: 'Login successfully', result: user });
+    } else {
+      res.status(400).json({ msg: 'Private key does not exist' });
+    }
   } catch (error) {
-    res.status(500).json("error found",error)
+    res.status(500).json({ msg: 'Error occurred', error });
   }
-})
+});
 
-
-
+// Government Registrar Login
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body
+  const { username, password } = req.body;
   try {
-    let user = await Govt.findOne({
-      username,
-    })
-    if (!user)
-      return res.status(400).json({
-        message: 'User Not Exist',
-      })
+    let user = await Govt.findOne({ username });
+    if (!user) return res.status(400).json({ message: 'User Not Exist' });
 
-    const isMatch = await bcrypt.compare(password, user.password)
-    if (!isMatch)
-      return res.status(400).json({
-        message: 'Incorrect Password !',
-      })
-    var payload = { user: user }
-    // console.log(payload);
-    var token = jwt.sign(payload, 'login successfull')
-    res.status(200).send(token)
-    // res.send('Login Successfully')
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Incorrect Password!' });
+
+    const payload = { user };
+    const token = jwt.sign(payload, config.JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ token });
   } catch (e) {
-    console.error(e)
-    res.status(500).json({
-      message: 'Server Error',
-    })
+    console.error(e);
+    res.status(500).json({ message: 'Server Error' });
   }
-})
+});
 
-router.post('/send_mail', async (req, res) => {
-  const { lemail, message, subject, number } = req.body
-  mail.send_mail(lemail, message, subject)
-  sms.send_sms(number, message)
-  res.status(200).send('Mail Sent!')
-})
-
-module.exports = router
+module.exports = router;
