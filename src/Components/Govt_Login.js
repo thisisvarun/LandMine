@@ -61,56 +61,18 @@ class GovtLogin extends Component {
 
   handleSubmit = async () => {
     const { username, password } = this.state;
-
-    if (!username || !password) {
-      this.setState({ error: 'All fields are required' });
-      return;
-    }
-
-    this.setState({ loading: true, error: '' });
-
+  
     try {
-      // Initialize Web3
-      if (window.ethereum) {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        window.web3 = new Web3(window.ethereum);
-      } else if (window.web3) {
-        window.web3 = new Web3(window.web3.currentProvider);
-      } else {
-        this.setState({ 
-          error: 'No Web3 provider detected. Install MetaMask!',
-          loading: false 
-        });
-        return;
-      }
-
-      const accounts = await window.web3.eth.getAccounts();
-      const account = accounts[0];
-      window.localStorage.setItem('web3account', account);
-
-      const response = await axios.post('http://localhost:4000/govt/login', {
-        username,
-        password,
-        account
-      });
-
-      if (response.data.success) {
+      // For prototype, use a hardcoded admin check
+      if (username === "admin" && password === "admin123") {
         window.localStorage.setItem('govtAuthenticated', 'true');
-        window.localStorage.setItem('govtToken', response.data.token);
-        window.localStorage.setItem('govtAccount', account);
         window.location = '/dashboard_govt';
       } else {
-        this.setState({ 
-          error: response.data.message || 'Authentication failed',
-          loading: false 
-        });
+        alert("Invalid credentials. Try admin/admin123 for demo.");
       }
     } catch (error) {
-      console.error('Login error:', error);
-      this.setState({ 
-        error: error.response?.data?.message || 'An error occurred during login',
-        loading: false 
-      });
+      console.error("Login error:", error);
+      alert("Login failed. Check console.");
     }
   };
 

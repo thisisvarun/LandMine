@@ -96,44 +96,29 @@ class Register extends Component {
   }
 
   handleSubmit = async () => {
-    const { name, email, contact, address, city, postalCode } = this.state
-
-    if (!name || !email || !contact || !address || !city || !postalCode) {
-      alert('All fields are required')
-      return
-    }
-
-    if (!this.validateEmail(email)) {
-      alert('Please enter a valid email address')
-      return
-    }
-
-    const data = {
-      name,
-      email,
-      contact,
-      privateKey: address,
-      city,
-      postalCode,
-    }
-
+    const { name, email, contact, privateKey, city, postalCode } = this.state;
+  
     try {
-      const response = await axios.post('http://localhost:4000/signup', data)
-      if (response.status === 200) {
-        this.setState({
-          name: '',
-          email: '',
-          address: '',
-          postalCode: '',
-          city: '',
-          contact: '',
-        })
-        this.login(data)
+      const response = await axios.post('http://localhost:4000/signup', {
+        name,
+        email,
+        contact,
+        accountAddress: privateKey, // Assuming privateKey is actually the Ethereum address
+        city,
+        postalCode,
+      });
+  
+      if (response.data.success) {
+        alert("Signup successful!");
+        window.location = '/login';
+      } else {
+        alert(response.data.message || "Signup failed");
       }
     } catch (error) {
-      alert('User already exists. Try with another email address')
+      console.error("Signup error:", error);
+      alert("Signup failed. Check console.");
     }
-  }
+  };
 
   render() {
     const { classes } = this.props

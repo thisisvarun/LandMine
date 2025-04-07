@@ -76,59 +76,26 @@ class Login extends Component {
   };
 
   handleSubmit = async () => {
-    if (!this.validatePrivateKey()) return;
-
-    this.setState({ loading: true, error: '' });
-
+    if (!window.ethereum) {
+      alert("Please install MetaMask!");
+      return;
+    }
+  
     try {
-      // Check if Web3 is available
-      if (window.ethereum) {
-        try {
-          // Request account access
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          window.web3 = new Web3(window.ethereum);
-        } catch (error) {
-          this.setState({ 
-            error: 'User denied account access',
-            loading: false 
-          });
-          return;
-        }
-      } else if (window.web3) {
-        window.web3 = new Web3(window.web3.currentProvider);
-      } else {
-        this.setState({ 
-          error: 'No Web3 provider detected. Install MetaMask!',
-          loading: false 
-        });
-        return;
-      }
-
-      const { privateKey } = this.state;
-      const data = { privateKey };
-
-      const response = await axios.post('http://localhost:4000/privatekeylogin', data);
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const account = accounts[0];
       
-      if (response.data.success) {
-        window.localStorage.setItem('authenticated', 'true');
-        window.localStorage.setItem('id', response.data.user._id);
-        window.localStorage.setItem('account', response.data.account);
-        window.location = '/dashboard';
-      } else {
-        this.setState({ 
-          error: response.data.message || 'Authentication failed',
-          loading: false 
-        });
-      }
+      // Store account in localStorage (for prototype only)
+      window.localStorage.setItem('authenticated', 'true');
+      window.localStorage.setItem('account', account);
+      
+      // Redirect to dashboard
+      window.location = '/dashboard';
     } catch (error) {
-      console.error('Login error:', error);
-      this.setState({ 
-        error: error.response?.data?.message || 'An error occurred during login',
-        loading: false 
-      });
+      console.error("Login failed:", error);
+      alert("Login failed. Check console for details.");
     }
   };
-
   render() {
     const { classes } = this.props;
     const { privateKey, privateKeyError, privateKeyHelperText, loading, error } = this.state;
