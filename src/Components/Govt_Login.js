@@ -1,13 +1,11 @@
-import React, { Component } from 'react'
-import TextField from '@material-ui/core/TextField'
-//import Grid from '@material-ui/core/Grid'
-import Button from '@material-ui/core/Button'
-import { Container } from '@material-ui/core'
-import SendIcon from '@material-ui/icons/Send'
-import axios from 'axios'
-//import { withRouter, Redirect } from 'react-router-dom'
-import Land from '../abis/LandRegistry.json'
-import { withStyles } from '@material-ui/core/styles'
+import React, { Component } from 'react';
+import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+import { Container } from '@material-ui/core';
+import SendIcon from '@material-ui/icons/Send';
+import axios from 'axios';
+import { withStyles } from '@material-ui/core/styles';
+import Web3 from 'web3';
 
 const styles = () => ({
   root: {
@@ -35,84 +33,104 @@ const styles = () => ({
       fontFamily: "'Roboto Condensed', sans-serif",
     },
   },
-})
-class Login extends Component {
+});
+
+class GovtLogin extends Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
       username: '',
       password: '',
-      authenticated: false,
-    }
+      loading: false,
+      error: ''
+    };
   }
+
   componentDidMount = async () => {
-    const web3 = window.web3
-    const acc = await window.localStorage.getItem('web3account')
-    this.setState({ account: acc })
-    console.log(acc)
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
-    } else {
-      window.alert('Token contract not deployed to detected network.')
+    if (window.localStorage.getItem('govtAuthenticated') === 'true') {
+      this.props.history.push('/dashboard_govt');
     }
+  };
 
-    if (window.localStorage.getItem('authenticated') === 'true')
-      this.props.history.push('/dashboard_govt')
-  }
   handleChange = (name) => (event) => {
-    this.setState({ [name]: event.target.value })
-  }
-  handleSubmit = async () => {
-    let data = {
-      username: this.state.username,
-      password: this.state.password,
-    }  
-    if (this.state.username && this.state.password) {
-      axios.post('http://localhost:4000/login', data).then((response) => {
-        if (response.status === 200) {
-          window.alert('Login Successful')
-          window.localStorage.setItem('authenticated', true)
-          console.log(response.data)
-          window.localStorage.setItem('token', response.data)
+    this.setState({ 
+      [name]: event.target.value,
+      error: ''
+    });
+  };
 
-          //this.setState({ user: response.data })
-           //console.log(this.state.user)
-          window.location = '/dashboard_govt'
-          this.setState({
-            username: '',
-            password: '',
-          })
-        } else {
-          this.setState({ loading: false })
-          alert('Wrong Credentials')
-          this.setState({
-            username: '',
-            password: '',
-          })
-        }
-      })
-    } else {
-      alert('All fields are required')
+  handleSubmit = async () => {
+    const { username, password } = this.state;
+
+    if (!username || !password) {
+      this.setState({ error: 'All fields are required' });
+      return;
     }
-  }
+
+    this.setState({ loading: true, error: '' });
+
+    try {
+      // Initialize Web3
+      if (window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        window.web3 = new Web3(window.ethereum);
+      } else if (window.web3) {
+        window.web3 = new Web3(window.web3.currentProvider);
+      } else {
+        this.setState({ 
+          error: 'No Web3 provider detected. Install MetaMask!',
+          loading: false 
+        });
+        return;
+      }
+
+      const accounts = await window.web3.eth.getAccounts();
+      const account = accounts[0];
+      window.localStorage.setItem('web3account', account);
+
+      const response = await axios.post('http://localhost:4000/govt/login', {
+        username,
+        password,
+        account
+      });
+
+      if (response.data.success) {
+        window.localStorage.setItem('govtAuthenticated', 'true');
+        window.localStorage.setItem('govtToken', response.data.token);
+        window.localStorage.setItem('govtAccount', account);
+        window.location = '/dashboard_govt';
+      } else {
+        this.setState({ 
+          error: response.data.message || 'Authentication failed',
+          loading: false 
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      this.setState({ 
+        error: error.response?.data?.message || 'An error occurred during login',
+        loading: false 
+      });
+    }
+  };
+
   render() {
-    const { classes } = this.props
+    const { classes } = this.props;
+    const { username, password, loading, error } = this.state;
 
     return (
       <div className="profile-bg">
         <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="login-text">Government Portal</div>
+          {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
           <div className="input">
             <TextField
-              id="standard-full-width"
-              type="username"
+              id="username"
+              type="text"
               label="Username"
               placeholder="Enter Your Username"
               fullWidth
-              value={this.state.username}
+              value={username}
               margin="normal"
               InputLabelProps={{
                 shrink: true,
@@ -120,12 +138,12 @@ class Login extends Component {
               onChange={this.handleChange('username')}
             />
             <TextField
-              id="standard-full-width"
+              id="password"
               type="password"
               label="Password"
               placeholder="Enter Your Password"
               fullWidth
-              value={this.state.password}
+              value={password}
               margin="normal"
               InputLabelProps={{
                 shrink: true,
@@ -141,14 +159,16 @@ class Login extends Component {
                 color="primary"
                 endIcon={<SendIcon>submit</SendIcon>}
                 onClick={this.handleSubmit}
+                disabled={loading}
               >
-                Login
+                {loading ? 'Logging in...' : 'Login'}
               </Button>
             </div>
           </div>
         </Container>
       </div>
-    )
+    );
   }
 }
-export default withStyles(styles)(Login)
+
+export default withStyles(styles)(GovtLogin);

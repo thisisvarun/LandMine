@@ -3,6 +3,7 @@ import { TextField, Button, Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
 import axios from 'axios';
 import { withStyles } from '@material-ui/core/styles';
+import Web3 from 'web3';
 
 const styles = () => ({
   root: {
@@ -39,11 +40,16 @@ class Login extends Component {
       privateKey: '',
       privateKeyError: false,
       privateKeyHelperText: '',
+      loading: false,
+      error: ''
     };
   }
 
   handleChange = (event) => {
-    this.setState({ privateKey: event.target.value });
+    this.setState({ 
+      privateKey: event.target.value,
+      error: '' 
+    });
   };
 
   validatePrivateKey = () => {
@@ -55,7 +61,13 @@ class Login extends Component {
       });
       return false;
     }
-    // Add additional validation logic if necessary
+    if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
+      this.setState({
+        privateKeyError: true,
+        privateKeyHelperText: 'Invalid private key format.',
+      });
+      return false;
+    }
     this.setState({
       privateKeyError: false,
       privateKeyHelperText: '',
@@ -64,42 +76,74 @@ class Login extends Component {
   };
 
   handleSubmit = async () => {
-    if (!this.validatePrivateKey()) {
-      return;
-    }
+    if (!this.validatePrivateKey()) return;
 
-    const { privateKey } = this.state;
-    const data = { privateKey };
+    this.setState({ loading: true, error: '' });
 
     try {
+      // Check if Web3 is available
+      if (window.ethereum) {
+        try {
+          // Request account access
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          window.web3 = new Web3(window.ethereum);
+        } catch (error) {
+          this.setState({ 
+            error: 'User denied account access',
+            loading: false 
+          });
+          return;
+        }
+      } else if (window.web3) {
+        window.web3 = new Web3(window.web3.currentProvider);
+      } else {
+        this.setState({ 
+          error: 'No Web3 provider detected. Install MetaMask!',
+          loading: false 
+        });
+        return;
+      }
+
+      const { privateKey } = this.state;
+      const data = { privateKey };
+
       const response = await axios.post('http://localhost:4000/privatekeylogin', data);
-      if (response.data.result) {
-        window.localStorage.setItem('authenticated', true);
-        window.localStorage.setItem('id', response.data.result._id);
+      
+      if (response.data.success) {
+        window.localStorage.setItem('authenticated', 'true');
+        window.localStorage.setItem('id', response.data.user._id);
+        window.localStorage.setItem('account', response.data.account);
         window.location = '/dashboard';
       } else {
-        alert('Wrong Private Key');
+        this.setState({ 
+          error: response.data.message || 'Authentication failed',
+          loading: false 
+        });
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert('An error occurred during login. Please try again.');
+      this.setState({ 
+        error: error.response?.data?.message || 'An error occurred during login',
+        loading: false 
+      });
     }
   };
 
   render() {
     const { classes } = this.props;
-    const { privateKey, privateKeyError, privateKeyHelperText } = this.state;
+    const { privateKey, privateKeyError, privateKeyHelperText, loading, error } = this.state;
 
     return (
       <div className="profile-bg">
         <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="login-text">User Login</div>
+          {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
           <div className="input">
             <TextField
               id="private-key-input"
               type="password"
               label="Private Key"
-              placeholder="Enter Your Private Key"
+              placeholder="Enter Your Private Key (0x...)"
               fullWidth
               value={privateKey}
               margin="normal"
@@ -117,8 +161,9 @@ class Login extends Component {
               color="primary"
               endIcon={<SendIcon>submit</SendIcon>}
               onClick={this.handleSubmit}
+              disabled={loading}
             >
-              Login
+              {loading ? 'Logging in...' : 'Login'}
             </Button>
           </div>
           <div style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}>

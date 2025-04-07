@@ -35,6 +35,11 @@ class Dashboard extends Component {
   }
 
   componentWillMount = async () => {
+    // Authentication check
+    if (window.localStorage.getItem('govtAuthenticated') !== 'true') {
+      this.props.history.push('/govt_login');
+      return;
+    }
     // console.log('token= ' + window.localStorage.getItem('token'))
     const user = jwtDecode(window.localStorage.getItem('token'))
     this.setState({ ...user.user })

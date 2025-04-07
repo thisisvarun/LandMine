@@ -75,6 +75,11 @@ class Dashboard extends Component {
     }
   }
   componentDidMount = async () => {
+    // Authentication check
+    if (window.localStorage.getItem('authenticated') !== 'true') {
+      this.props.history.push('/login');
+      return;
+    }
     const web3 = window.web3
     const accounts = await web3.eth.getAccounts()
     await window.localStorage.setItem('web3account', accounts[0])
