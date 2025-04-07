@@ -1,98 +1,113 @@
 const express = require('express');
 const router = express.Router();
-const  Owner = require('../Model/Owners');
-// const Land = require('../models/Land');
+const Owner = require('../Model/Owners');
 
+// Validation middleware
+const validateOwnerInput = (req, res, next) => {
+  const { name, email, contact, pan, address, state, city, postalCode } = req.body;
+  
+  if (!name || !email || !contact || !pan || !address || !state || !city || !postalCode) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'All required fields must be provided' 
+    });
+  }
 
-// API for adding owner details
-router.post('/owner', async (req, res) => {
-    //   const { ownerName, privateKey, ownerEmailId, ownerContactNumber, panNumber, occupation, ownerPermanentAddress, state, city, postalCode} = req.body;
+  // Basic email validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid email format' 
+    });
+  }
 
-    try {
-        // let owner = await Owner.findOne({ privateKey });
+  // Indian phone number validation
+  if (!/^[6-9]\d{9}$/.test(contact)) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid contact number' 
+    });
+  }
 
-        // if (owner) {
-        //     return res.status(400).json({
-        //         message: 'Owner Already Exists',
-        //     });
-        // }
+  next();
+};
 
-        // console.log(req.body)
+// Add owner details
+router.post('/owner', validateOwnerInput, async (req, res) => {
+  try {
+    // Check if owner with same email or PAN already exists
+    const existingOwner = await Owner.findOne({
+      $or: [
+        { ownerEmailId: req.body.email },
+        { panNumber: req.body.pan }
+      ]
+    });
 
-        let result = new Owner({
-            ownerName: req.body.name,
-            // privateKey: req.body.privateKey,
-            ownerEmailId: req.body.email,
-            ownerContactNumber: req.body.contact,
-            panNumber: req.body.pan,
-            occupation: req.body.occupation,
-            ownerPermanentAddress: req.body.address,
-            state: req.body.state,
-            city: req.body.city,
-            postalCode: req.body.postalCode,
-            laddress: req.body.laddress,
-            lcity: req.body.lcity,
-            lstate: req.body.lstate,
-            lpostalCode: req.body.lpostalCode,
-            larea: req.body.larea,
-            lamount: req.body.lamount,
-            // document:req.body.document,
-            // images:req.body.images
-
-        });
-
-        result = await result.save();
-        res.status(200).send({msg:'Owner Details Added Successfully', result});
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+    if (existingOwner) {
+      return res.status(409).json({
+        success: false,
+        error: 'Owner with this email or PAN already exists'
+      });
     }
+
+    const newOwner = new Owner({
+      ownerName: req.body.name,
+      ownerEmailId: req.body.email,
+      ownerContactNumber: req.body.contact,
+      panNumber: req.body.pan,
+      occupation: req.body.occupation,
+      ownerPermanentAddress: req.body.address,
+      state: req.body.state,
+      city: req.body.city,
+      postalCode: req.body.postalCode,
+      laddress: req.body.laddress || '',
+      lcity: req.body.lcity || '',
+      lstate: req.body.lstate || '',
+      lpostalCode: req.body.lpostalCode || '',
+      larea: req.body.larea || '',
+      lamount: req.body.lamount || ''
+    });
+
+    const savedOwner = await newOwner.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Owner details added successfully',
+      data: {
+        id: savedOwner._id,
+        name: savedOwner.ownerName,
+        email: savedOwner.ownerEmailId
+      }
+    });
+
+  } catch (err) {
+    console.error('Error adding owner:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while saving owner details'
+    });
+  }
 });
 
+// Get all owners
 router.get('/owner', async (req, res) => {
-    const result = await Owner.find({})
-    res.status(200).json(result);
-})
+  try {
+    const owners = await Owner.find({})
+      .select('-__v') // Exclude version key
+      .lean();
 
-// // API for adding land details
-router.post('/land', async (req, res) => {
-    const { address, state, city, postalCode, area, totalAmount } = req.body;
-
-    try {
-        let owner = await Owner.findOne({ address });
-
-        if (!owner) {
-            return res.status(400).json({
-                message: 'Owner Not Found',
-            });
-        }
-
-        const land = new Land({
-            address,
-            state,
-            city,
-            postalCode,
-            area,
-            totalAmount,
-        });
-
-        await land.save();
-        res.status(200).send('Land Details Added Successfully');
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// API for getting all land details
-router.get('/lands', async (req, res) => {
-    try {
-        const lands = await Land.find().populate('owner', 'privateKey');
-        res.status(200).json(lands);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
+    res.status(200).json({
+      success: true,
+      count: owners.length,
+      data: owners
+    });
+  } catch (err) {
+    console.error('Error fetching owners:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching owners'
+    });
+  }
 });
 
 module.exports = router;

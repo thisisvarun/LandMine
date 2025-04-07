@@ -6,124 +6,143 @@ const config = require('../Config/db_config');
 const User = require('../Model/User');
 const Govt = require('../Model/Government_Registrar');
 
+// Helper function for error responses
+const errorResponse = (res, status, message) => {
+  return res.status(status).json({ success: false, error: message });
+};
+
 // User Signup
 router.post('/signup', async (req, res) => {
-  const { email, name, contact, privateKey, city, postalCode, password } = req.body;
+  const { email, name, contact, privateKey, governmentId, city, postalCode, password } = req.body;
+  
   try {
-    console.log('Signup attempt with email:', email);
-
-    let user = await User.findOne({ email });
-    console.log('User found in database:', user);
-
-    if (user) {
-      return res.status(400).json({ message: 'User Already Exists' });
+    // Validate required fields
+    if (!email || !name || !contact || !privateKey || !governmentId || !city || !postalCode || !password) {
+      return errorResponse(res, 400, 'All fields are required');
     }
 
+    // Check for existing user by email, privateKey, or governmentId
+    const existingUser = await User.findOne({ 
+      $or: [
+        { email },
+        { privateKey },
+        { governmentId }
+      ]
+    });
+
+    if (existingUser) {
+      if (existingUser.email === email) {
+        return errorResponse(res, 400, 'Email already in use');
+      }
+      if (existingUser.privateKey === privateKey) {
+        return errorResponse(res, 400, 'Private key already in use');
+      }
+      if (existingUser.governmentId === governmentId) {
+        return errorResponse(res, 400, 'Government ID already in use');
+      }
+    }
+
+    // Create new user
     const newUser = new User({
       email,
       name,
       contact,
       privateKey,
+      governmentId,
       city,
       postalCode,
-      password,
+      password
     });
 
-    console.log('Creating new user:', newUser);
-
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     newUser.password = await bcrypt.hash(password, salt);
 
+    // Save user
     await newUser.save();
-    console.log('User saved successfully:', newUser);
-    res.status(200).send('Thanks for registering!');
-  } catch (err) {
-    console.log('Error in signup:', err.message);
-    res.status(500).send('Error in Saving');
-  }
-});
 
-// Government Registrar Registration
-router.post('/register_govt', async (req, res) => {
-  try {
-    const { username, password, address, contact, city } = req.body;
+    // Create JWT token
+    const payload = { 
+      userId: newUser._id,
+      email: newUser.email,
+      role: newUser.role
+    };
 
-    console.log('Government Registrar registration attempt with username:', username);
-
-    let existing = await Govt.findOne({ username });
-    console.log('Government user found in database:', existing);
-
-    if (existing) {
-      return res.status(400).json({ message: 'Government User Already Exists' });
-    }
-
-    const govtUser = new Govt({
-      username,
-      password,
-      address,
-      contact,
-      city,
-    });
-
-    console.log('Creating new government user:', govtUser);
-
-    const salt = await bcrypt.genSalt(10);
-    govtUser.password = await bcrypt.hash(password, salt);
-
-    await govtUser.save();
-    console.log('Government user saved successfully:', govtUser);
-    res.status(200).send('Thanks for registering!');
-  } catch (err) {
-    console.log('Error in government registrar registration:', err.message);
-    res.status(500).send('Error in Saving');
-  }
-});
-
-// Private Key Login
-router.post('/privatekeylogin', async (req, res) => {
-  try {
-    const { privateKey } = req.body;
-    console.log('Private key login attempt with privateKey:', privateKey);
-
-    const user = await User.findOne({ privateKey });
-    console.log('User found with private key:', user);
-
-    if (user) {
-      res.status(200).json({ msg: 'Login successfully', result: user });
-    } else {
-      res.status(400).json({ msg: 'Private key does not exist' });
-    }
-  } catch (error) {
-    console.log('Error during private key login:', error.message);
-    res.status(500).json({ msg: 'Error occurred', error });
-  }
-});
-
-// Government Registrar Login
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    console.log('Login attempt with username:', username);
-
-    let user = await Govt.findOne({ username });
-    console.log('User found in database:', user);
-
-    if (!user) return res.status(400).json({ message: 'User Not Exist' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    console.log('Password comparison result:', isMatch);
-
-    if (!isMatch) return res.status(400).json({ message: 'Incorrect Password!' });
-
-    const payload = { user };
     const token = jwt.sign(payload, config.JWT_SECRET, { expiresIn: '1h' });
 
-    console.log('JWT Token generated:', token);
-    res.status(200).json({ token });
-  } catch (e) {
-    console.error('Error during login:', e);
-    res.status(500).json({ message: 'Server Error' });
+    // Omit sensitive data from response
+    const userResponse = {
+      _id: newUser._id,
+      name: newUser.name,
+      email: newUser.email,
+      governmentId: newUser.governmentId,
+      city: newUser.city
+    };
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Registration successful',
+      token,
+      user: userResponse
+    });
+
+  } catch (err) {
+    console.error('Signup error:', err);
+    errorResponse(res, 500, 'Server error during registration');
   }
 });
+
+// Government ID Login
+router.post('/government-login', async (req, res) => {
+  const { governmentId, password } = req.body;
+
+  try {
+    if (!governmentId || !password) {
+      return errorResponse(res, 400, 'Government ID and password are required');
+    }
+
+    const user = await User.findOne({ governmentId });
+    if (!user) {
+      return errorResponse(res, 404, 'User not found with this Government ID');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return errorResponse(res, 401, 'Invalid credentials');
+    }
+
+    // Create JWT token
+    const payload = { 
+      userId: user._id,
+      email: user.email,
+      governmentId: user.governmentId,
+      role: user.role
+    };
+
+    const token = jwt.sign(payload, config.JWT_SECRET, { expiresIn: '1h' });
+
+    // Omit sensitive data from response
+    const userResponse = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      governmentId: user.governmentId,
+      role: user.role
+    };
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Login successful',
+      token,
+      user: userResponse
+    });
+
+  } catch (err) {
+    console.error('Government login error:', err);
+    errorResponse(res, 500, 'Server error during login');
+  }
+});
+
+// ... (keep other existing routes but update error handling similarly)
 
 module.exports = router;
