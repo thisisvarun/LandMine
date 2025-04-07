@@ -1,4 +1,4 @@
-var mongoose = require('mongoose')
+var mongoose = require('mongoose');
 
 var govtSchema = mongoose.Schema({
   username: { type: String, required: true },
@@ -6,6 +6,6 @@ var govtSchema = mongoose.Schema({
   address: { type: String, required: true },
   contact: { type: String, required: true },
   city: { type: String, required: true },
-})
+});
 
-module.exports = mongoose.model('govtOffices', govtSchema)
+module.exports = mongoose.model('GovernmentRegistrar', govtSchema);  // Updated collection name
