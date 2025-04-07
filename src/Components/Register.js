@@ -16,16 +16,16 @@ const styles = () => ({
     '& .MuiFormLabel-root': {
       color: '#fff',
     },
-    '&  .MuiInputBase-root': {
+    '& .MuiInputBase-root': {
       color: '#fff',
     },
-    '&  .MuiInput-underline:before': {
+    '& .MuiInput-underline:before': {
       borderBottomColor: '#fff',
     },
-    '&  .MuiInput-underline:after': {
+    '& .MuiInput-underline:after': {
       borderBottomColor: '#fff',
     },
-    '&  .MuiInput-underline:hover': {
+    '& .MuiInput-underline:hover': {
       borderBottomColor: '#fff',
     },
     '& .MuiButton-containedPrimary': {
@@ -41,10 +41,12 @@ class Register extends Component {
     this.state = {
       name: '',
       email: '',
-      address: '',
+      address: '', // The Ethereum address (privateKey)
       postalCode: '',
       city: '',
       contact: '',
+      account: '',
+      landList: null, // Store the smart contract instance
     }
   }
 
@@ -53,6 +55,7 @@ class Register extends Component {
     const accounts = await web3.eth.getAccounts()
     window.localStorage.setItem('web3account', accounts[0])
     this.setState({ account: accounts[0] })
+
     const networkId = await web3.eth.net.getId()
     const LandData = Land.networks[networkId]
     if (LandData) {
@@ -61,8 +64,10 @@ class Register extends Component {
     } else {
       alert('Token contract not deployed to detected network.')
     }
-    if (window.localStorage.getItem('authenticated') === 'true')
+
+    if (window.localStorage.getItem('authenticated') === 'true') {
       window.location = '/dashboard'
+    }
   }
 
   handleChange = (name) => (event) => {
@@ -75,16 +80,17 @@ class Register extends Component {
   }
 
   login = async (data) => {
-    await this.state.landList.methods
+    const { landList, account } = this.state
+    await landList.methods
       .addUser(
         data.privateKey,
         data.name,
         data.contact,
         data.email,
         data.postalCode,
-        data.city,
+        data.city
       )
-      .send({ from: this.state.account, gas: 1000000 })
+      .send({ from: account, gas: 1000000 })
       .on('receipt', (receipt) => {
         if (receipt) {
           alert('User has been added successfully!')
@@ -96,33 +102,50 @@ class Register extends Component {
   }
 
   handleSubmit = async () => {
-    const { name, email, contact, privateKey, city, postalCode } = this.state;
-  
+    const { name, email, contact, address, city, postalCode } = this.state
+
+    if (!name || !email || !contact || !address || !city || !postalCode) {
+      alert('All fields are required.')
+      return
+    }
+
+    if (!this.validateEmail(email)) {
+      alert('Please enter a valid email address.')
+      return
+    }
+
     try {
-      const response = await axios.post('http://localhost:4000/signup', {
+      const response = await axios.post('http://localhost:3000/signup', {
         name,
         email,
         contact,
-        accountAddress: privateKey, // Assuming privateKey is actually the Ethereum address
+        accountAddress: address, // Assuming address is the Ethereum account address
         city,
         postalCode,
-      });
-  
+      })
+
       if (response.data.success) {
-        alert("Signup successful!");
-        window.location = '/login';
+        alert('Signup successful!')
+        this.login({
+          privateKey: address,
+          name,
+          contact,
+          email,
+          postalCode,
+          city,
+        })
       } else {
-        alert(response.data.message || "Signup failed");
+        alert(response.data.message || 'Signup failed')
       }
     } catch (error) {
-      console.error("Signup error:", error);
-      alert("Signup failed. Check console.");
+      console.error('Signup error:', error)
+      alert('Signup failed. Check console.')
     }
-  };
+  }
 
   render() {
     const { classes } = this.props
-    const { name, email, address, postalCode, city, contact } = this.state
+    const { name, email, contact, address, city, postalCode } = this.state
 
     return (
       <div className="profile-bg">
@@ -157,8 +180,8 @@ class Register extends Component {
               onChange={this.handleChange('contact')}
             />
             <TextField
-              label="Private Key"
-              placeholder="Enter Your Private Key"
+              label="Ethereum Address"
+              placeholder="Enter Your Ethereum Address"
               fullWidth
               value={address}
               margin="normal"

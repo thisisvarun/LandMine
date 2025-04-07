@@ -75,11 +75,6 @@ class Dashboard extends Component {
     }
   }
   componentDidMount = async () => {
-    // Authentication check
-    if (window.localStorage.getItem('authenticated') !== 'true') {
-      this.props.history.push('/login');
-      return;
-    }
     const web3 = window.web3
     const accounts = await web3.eth.getAccounts()
     await window.localStorage.setItem('web3account', accounts[0])
@@ -92,26 +87,20 @@ class Dashboard extends Component {
     } else {
       window.alert('Token contract not deployed to detected network.')
     }
-
-    if (
-      !window.localStorage.getItem('authenticated') ||
-      window.localStorage.getItem('authenticated') === 'false'
-    )
-      this.props.history.push('/login')
-    // const category=window.localStorage.getItem('category');
+  
     this.setState({ isLoading: false })
     this.getDetails()
     this.getDetails1()
-
-   try {
-    let res = await axios.get('http://localhost:4000/owner')
-    res = res.data
-    console.log(res)
-    this.setState({assetList: [...res]})
-   } catch (error) {
-    console.log(error)
-   }
+  
+    try {
+      let res = await axios.get('http://localhost:4000/owner')
+      res = res.data
+      this.setState({ assetList: [...res] })
+    } catch (error) {
+      console.log(error)
+    }
   }
+  
 
   async propertyDetails(property) {
     let details = await this.state.landList.methods

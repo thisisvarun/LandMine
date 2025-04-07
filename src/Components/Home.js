@@ -19,7 +19,7 @@ export default class Home extends Component {
     const isGovtAuth = window.localStorage.getItem('govtAuthenticated') === 'true';
     const isUserAuth = window.localStorage.getItem('authenticated') === 'true';
 
-    this.setState({
+    this.setState( {
       isGovtAuthenticated: isGovtAuth,
       isAuthenticated: isUserAuth,
     });

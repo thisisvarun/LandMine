@@ -26,11 +26,6 @@ class Dashboard extends Component {
   }
 
   async componentDidMount() {
-    if (window.localStorage.getItem('govtAuthenticated') !== 'true') {
-      this.props.history.push('/govt_login'); // Redirect if not authenticated
-      return;
-    }
-
     try {
       const web3 = new Web3(window.ethereum);
       await window.ethereum.enable();
