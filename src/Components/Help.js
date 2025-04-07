@@ -36,7 +36,7 @@ class Help extends Component {
             </AccordionSummary>
             <AccordionDetails>
               <Typography>
-                Visit http://localhost:4000/signup to register on the platform.
+                Visit http://localhost:3000/signup to register on the platform.
                 You have to provide the following details to the form:-
                 <li>Name</li>
                 <li>Email Address</li>

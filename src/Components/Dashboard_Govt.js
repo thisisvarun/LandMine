@@ -1,151 +1,134 @@
-import React, { Component } from 'react'
-//import { withRouter, Redirect } from 'react-router-dom'
-import { Container, CircularProgress } from '@material-ui/core'
-import Land from '../abis/LandRegistry.json'
-import ipfs from '../ipfs'
-import Table from '../Containers/Govt_Table'
-import { withStyles } from '@material-ui/core/styles'
-import Web3 from 'web3'
-import jwtDecode from 'jwt-decode'
-import axios from 'axios'
+import React, { Component } from 'react';
+import { Container, CircularProgress } from '@material-ui/core';
+import Land from '../abis/LandRegistry.json';
+import ipfs from '../ipfs';
+import Table from '../Containers/Govt_Table';
+import { withStyles } from '@material-ui/core/styles';
+import Web3 from 'web3';
+import axios from 'axios';
 
-const styles = (theme) => ({
+const styles = {
   container: {
-    // paddingLedt: '0px',
-    // paddingRight: '0px',
     '& .MuiContainer-maxWidthLg': {
       maxWidth: '100%',
     },
   },
-})
+};
 
 class Dashboard extends Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
       assetList: [],
       isLoading: true,
-      username: '',
-      Governmentpublickey: '',
-      address: '',
-      contact: '',
-      city: '',
-      imgurl: '',
-    }
+      landList: null,
+    };
   }
 
-  componentWillMount = async () => {
-    // Authentication check
+  async componentDidMount() {
     if (window.localStorage.getItem('govtAuthenticated') !== 'true') {
-      this.props.history.push('/govt_login');
+      this.props.history.push('/govt_login'); // Redirect if not authenticated
       return;
     }
-    // console.log('token= ' + window.localStorage.getItem('token'))
-    const user = jwtDecode(window.localStorage.getItem('token'))
-    this.setState({ ...user.user })
-    // this.setState({ ...user.user })
-    const web3 = window.web3
-    // Use web3 to get the user's accounts.
-    const accounts = await web3.eth.getAccounts()
-    window.localStorage.setItem('web3account', accounts[0])
-    this.setState({ isLoading: false })
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
-    } else {
-      window.alert('Token contract not deployed to detected network.')
-    }
-    this.getDetails()
 
     try {
-      let res = await axios.get('http://localhost:4000/gov')
-      res = res.data
-      console.log(res)
-      this.setState({assetList: [...res]})
-     } catch (error) {
-      console.log(error)
-     }
-    }
-  
+      const web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();
 
-  async propertyDetails(property) {
-    // console.log(property)
-    let details = await this.state.landList.methods
-      .landInfoOwner(property)
-      .call()
-    ipfs.cat(details[1], (err, res) => {
-      if (err) {
-        console.error(err)
-        return
+      const accounts = await web3.eth.getAccounts();
+      window.localStorage.setItem('web3account', accounts[0]);
+
+      const networkId = await web3.eth.net.getId();
+      const LandData = Land.networks[networkId];
+      if (LandData) {
+        const landList = new web3.eth.Contract(Land.abi, LandData.address);
+        this.setState({ landList });
+        this.getDetails(landList);
+      } else {
+        alert('Token contract not deployed to detected network.');
       }
-      console.log(details)
-      const temp = JSON.parse(res.toString())
-      this.state.assetList.push({
-        property: property,
-        uniqueID: details[1],
-        name: temp.name,
-        key: details[0],
-        email: temp.email,
-        contact: temp.contact,
-        pan: temp.pan,
-        occupation: temp.occupation,
-        oaddress: temp.address,
-        ostate: temp.state,
-        ocity: temp.city,
-        opostalCode: temp.postalCode,
-        laddress: temp.laddress,
-        lstate: temp.lstate,
-        lcity: temp.lcity,
-        lpostalCode: temp.lpostalCode,
-        larea: temp.larea,
-        lamount: details[2],
-        isGovtApproved: details[3],
-        isAvailable: details[4],
-        requester: details[5],
-        requestStatus: details[6],
-        document: temp.document,
-        images: temp.images,
-      })
-      this.setState({ assetList: [...this.state.assetList] })
-    })
-  }
 
-  async getDetails() {
-    const properties = await this.state.landList.methods.Assets().call()
-    // console.log(properties)
+      const res = await axios.get('http://localhost:4000/gov');
+      this.setState({ assetList: res.data, isLoading: false });
 
-    for (let item of properties) {
-      console.log('item:' + item)
-      this.propertyDetails(item)
+    } catch (error) {
+      console.error('Initialization error:', error);
+      this.setState({ isLoading: false });
     }
   }
+
+  async propertyDetails(property, landList) {
+    try {
+      const details = await landList.methods.landInfoOwner(property).call();
+      ipfs.cat(details[1], (err, res) => {
+        if (err) return console.error(err);
+        const data = JSON.parse(res.toString());
+        this.setState((prevState) => ({
+          assetList: [
+            ...prevState.assetList,
+            {
+              property,
+              uniqueID: details[1],
+              name: data.name,
+              key: details[0],
+              email: data.email,
+              contact: data.contact,
+              pan: data.pan,
+              occupation: data.occupation,
+              oaddress: data.address,
+              ostate: data.state,
+              ocity: data.city,
+              opostalCode: data.postalCode,
+              laddress: data.laddress,
+              lstate: data.lstate,
+              lcity: data.lcity,
+              lpostalCode: data.lpostalCode,
+              larea: data.larea,
+              lamount: details[2],
+              isGovtApproved: details[3],
+              isAvailable: details[4],
+              requester: details[5],
+              requestStatus: details[6],
+              document: data.document,
+              images: data.images,
+            },
+          ],
+        }));
+      });
+    } catch (error) {
+      console.error('Error fetching property:', error);
+    }
+  }
+
+  async getDetails(landList) {
+    try {
+      const properties = await landList.methods.Assets().call();
+      properties.forEach((property) => {
+        this.propertyDetails(property, landList);
+      });
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+    }
+  }
+
   render() {
-    const { classes } = this.props
-    return this.state.isLoading ? (
+    const { classes } = this.props;
+    const { isLoading, assetList } = this.state;
+
+    return isLoading ? (
       <div style={{ position: 'absolute', top: '50%', left: '50%' }}>
         <CircularProgress />
       </div>
     ) : (
       <div className="profile-bg">
         <div className={classes.container}>
-          <Container style={{ marginTop: '40px' }}>
-            {/* <Button
-            style={{ marginTop: '30px' }}
-            variant="contained"
-            color="primary"
-            onClick={() => this.props.history.push('/registration_form')}
-          >
-            Register Land
-          </Button> */}
-            <div style={{ marginTop: '100px' }}>
-              <Table assetList={this.state.assetList} />
-            </div>
+          <Container style={{ marginTop: '100px' }}>
+            <Table assetList={assetList} />
           </Container>
         </div>
       </div>
-    )
+    );
   }
 }
-export default withStyles(styles)(Dashboard)
+
+export default withStyles(styles)(Dashboard);

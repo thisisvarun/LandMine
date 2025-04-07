@@ -1,9 +1,7 @@
 import React, { Component } from 'react';
 import { TextField, Button, Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
-import axios from 'axios';
 import { withStyles } from '@material-ui/core/styles';
-import Web3 from 'web3';
 
 const styles = () => ({
   root: {
@@ -76,26 +74,30 @@ class Login extends Component {
   };
 
   handleSubmit = async () => {
+    if (!this.validatePrivateKey()) return;
+
     if (!window.ethereum) {
       alert("Please install MetaMask!");
       return;
     }
-  
+
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const account = accounts[0];
-      
-      // Store account in localStorage (for prototype only)
+
+      // Store login data
       window.localStorage.setItem('authenticated', 'true');
       window.localStorage.setItem('account', account);
-      
+
       // Redirect to dashboard
-      window.location = '/dashboard';
+      window.location = '/dashboard'; // Or wherever you want to redirect after successful login
     } catch (error) {
       console.error("Login failed:", error);
       alert("Login failed. Check console for details.");
     }
   };
+
+
   render() {
     const { classes } = this.props;
     const { privateKey, privateKeyError, privateKeyHelperText, loading, error } = this.state;
@@ -126,7 +128,7 @@ class Login extends Component {
             <Button
               variant="contained"
               color="primary"
-              endIcon={<SendIcon>submit</SendIcon>}
+              endIcon={<SendIcon />}
               onClick={this.handleSubmit}
               disabled={loading}
             >

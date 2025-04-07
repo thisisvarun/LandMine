@@ -3,9 +3,7 @@ import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
 import { Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
-import axios from 'axios';
 import { withStyles } from '@material-ui/core/styles';
-import Web3 from 'web3';
 
 const styles = () => ({
   root: {
@@ -46,7 +44,7 @@ class GovtLogin extends Component {
     };
   }
 
-  componentDidMount = async () => {
+  componentDidMount = () => {
     if (window.localStorage.getItem('govtAuthenticated') === 'true') {
       this.props.history.push('/dashboard_govt');
     }
@@ -61,20 +59,25 @@ class GovtLogin extends Component {
 
   handleSubmit = async () => {
     const { username, password } = this.state;
-  
+
+    this.setState({ loading: true });
+
     try {
-      // For prototype, use a hardcoded admin check
       if (username === "admin" && password === "admin123") {
+        // Set government authentication in localStorage
         window.localStorage.setItem('govtAuthenticated', 'true');
-        window.location = '/dashboard_govt';
+        this.props.history.push('/dashboard_govt'); // Redirect to government dashboard
       } else {
         alert("Invalid credentials. Try admin/admin123 for demo.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      alert("Login failed. Check console.");
+      alert("Login failed.");
+    } finally {
+      this.setState({ loading: false });
     }
   };
+
 
   render() {
     const { classes } = this.props;
@@ -82,50 +85,34 @@ class GovtLogin extends Component {
 
     return (
       <div className="profile-bg">
-        <Container style={{ marginTop: '40px' }} className={classes.root}>
+        <Container className={classes.root}>
           <div className="login-text">Government Portal</div>
           {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-          <div className="input">
-            <TextField
-              id="username"
-              type="text"
-              label="Username"
-              placeholder="Enter Your Username"
-              fullWidth
-              value={username}
-              margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              onChange={this.handleChange('username')}
-            />
-            <TextField
-              id="password"
-              type="password"
-              label="Password"
-              placeholder="Enter Your Password"
-              fullWidth
-              value={password}
-              margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              onChange={this.handleChange('password')}
-            />
-          </div>
-
-          <div>
-            <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                endIcon={<SendIcon>submit</SendIcon>}
-                onClick={this.handleSubmit}
-                disabled={loading}
-              >
-                {loading ? 'Logging in...' : 'Login'}
-              </Button>
-            </div>
+          <TextField
+            label="Username"
+            fullWidth
+            value={username}
+            margin="normal"
+            onChange={this.handleChange('username')}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            fullWidth
+            value={password}
+            margin="normal"
+            onChange={this.handleChange('password')}
+          />
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              endIcon={<SendIcon />}
+              onClick={this.handleSubmit}
+              disabled={loading}
+            >
+              {loading ? 'Logging in...' : 'Login'}
+            </Button>
           </div>
         </Container>
       </div>

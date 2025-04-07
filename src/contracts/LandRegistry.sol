@@ -1,4 +1,7 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address payable constant govtAddress = payable(0x383E286EA48E1626605e349C6a72c11e10CC46F1);
 
 contract LandRegistry {
     struct Task {
@@ -32,7 +35,7 @@ contract LandRegistry {
     address owner;
     enum reqStatus {Default, Pending, Rejected, Approved}
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 
@@ -41,7 +44,6 @@ contract LandRegistry {
     }
 
     mapping(address => profiles) profile;
-
     mapping(address => user) public users;
     mapping(uint256 => landDetails) public land;
 
@@ -108,7 +110,7 @@ contract LandRegistry {
             _key,
             status,
             _isAvailable,
-            0x0000000000000000000000000000000000000000,
+            address(0),
             reqStatus.Default
         );
         profile[_id].assetList.push(_key);
@@ -122,8 +124,7 @@ contract LandRegistry {
         returns (uint256)
     {
         return
-            uint256(keccak256(abi.encodePacked(_laddress, _lamount))) %
-            10000000000000;
+            uint256(keccak256(abi.encodePacked(_laddress, _lamount))) % 10000000000000;
     }
 
     function viewAssets() public view returns (uint256[] memory) {
@@ -190,14 +191,22 @@ contract LandRegistry {
         }
     }
 
+    function calculateStampDuty(uint256 amount) public pure returns (uint256) {
+        uint256 stampDutyPercentage = 5;
+        return (amount * stampDutyPercentage) / 100;
+    }
+
     function buyProperty(uint256 property) public payable {
         require(land[property].requestStatus == reqStatus.Approved);
         require(msg.value == (land[property].lamount * 1000000000000000000));
-        land[property].id.transfer(
-            land[property].lamount * 1000000000000000000
-        );
+
+        uint256 stampDuty = calculateStampDuty(land[property].lamount);
+        
+        govtAddress.transfer(stampDuty);
+        land[property].id.transfer(land[property].lamount * 1000000000000000000 - stampDuty);
+
         removeOwnership(land[property].id, property);
-        land[property].id = msg.sender;
+        land[property].id = payable(msg.sender);
         land[property].isGovtApproved = "Not Approved";
         land[property].isAvailable = "Not yet approved by the govt.";
         land[property].requester = address(0);
@@ -207,18 +216,18 @@ contract LandRegistry {
 
     function removeOwnership(address previousOwner, uint256 id) private {
         uint256 index = findId(id, previousOwner);
-        profile[previousOwner].assetList[index] = profile[previousOwner]
-            .assetList[profile[previousOwner].assetList.length - 1];
-        delete profile[previousOwner].assetList[profile[previousOwner]
-            .assetList
-            .length - 1];
-        profile[previousOwner].assetList.length--;
+        
+        for (uint256 i = index; i < profile[previousOwner].assetList.length - 1; i++) {
+            profile[previousOwner].assetList[i] = profile[previousOwner].assetList[i + 1];
+        }
+        
+        profile[previousOwner].assetList.pop();
     }
 
-    function findId(uint256 id, address user) public view returns (uint256) {
+    function findId(uint256 id, address userAddress) public view returns (uint256) {
         uint256 i;
-        for (i = 0; i < profile[user].assetList.length; i++) {
-            if (profile[user].assetList[i] == id) return i;
+        for (i = 0; i < profile[userAddress].assetList.length; i++) {
+            if (profile[userAddress].assetList[i] == id) return i;
         }
         return i;
     }
