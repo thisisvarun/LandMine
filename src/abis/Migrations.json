@@ -59,7 +59,7 @@
   "sourceMap": "66:345:1:-;;;164:56;8:9:-1;5:2;;;30:1;27;20:12;5:2;164:56:1;203:10;195:5;;:18;;;;;;;;;;;;;;;;;;66:345;;;;;;",
   "deployedSourceMap": "66:345:1:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;66:345:1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;118:39;;;:::i;:::-;;;;;;;;;;;;;;;;;;;92:20;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;297:112;;;;;;13:2:-1;8:3;5:11;2:2;;;29:1;26;19:12;2:2;297:112:1;;;;;;;;;;;;;;;;;:::i;:::-;;118:39;;;;:::o;92:20::-;;;;;;;;;;;;;:::o;297:112::-;276:5;;;;;;;;;;;262:19;;:10;:19;;;258:26;;;393:9;366:24;:36;;;;258:26;297:112;:::o",
   "source": "// SPDX-License-Identifier: MIT\npragma solidity >=0.4.21 <0.7.0;\n\ncontract Migrations {\n    address public owner;\n    uint256 public last_completed_migration;\n\n    constructor() public {\n        owner = msg.sender;\n    }\n\n    modifier restricted() {\n        if (msg.sender == owner) _;\n    }\n\n    function setCompleted(uint256 completed) public restricted {\n        last_completed_migration = completed;\n    }\n}\n",
-  "sourcePath": "C:\\Users\\Dell\\OneDrive\\Desktop\\Land-Registry-Application-master\\src\\contracts\\Migrations.sol",
+  "sourcePath": "D:\\Projects\\Smart-Contract-Based-Land-Registry-System-using-Ethereum-Blockchain\\src\\contracts\\Migrations.sol",
   "ast": {
     "absolutePath": "project:/src/contracts/Migrations.sol",
     "exportedSymbols": {
@@ -958,12 +958,12 @@
     "5777": {
       "events": {},
       "links": {},
-      "address": "0xaf442E8fB9658c677Fd258e76bF70F59b752dF0A",
-      "transactionHash": "0xcbec98da803e8bf9578ca458c81d04fa7feb498ec0110c30d14a454ba98158a5"
+      "address": "0xD1E7364c4959cB70C17281522FBaB16B8eBC3962",
+      "transactionHash": "0x314807d19f48e23e741e467dee21c70189dfe0353402be3083c2401ee1838bc3"
     }
   },
-  "schemaVersion": "3.4.13",
-  "updatedAt": "2023-06-01T10:28:04.705Z",
+  "schemaVersion": "3.4.16",
+  "updatedAt": "2025-04-07T13:04:18.518Z",
   "networkType": "ethereum",
   "devdoc": {
     "methods": {}
