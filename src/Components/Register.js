@@ -1,11 +1,12 @@
-import React, { Component } from 'react'
-import TextField from '@material-ui/core/TextField'
-import Button from '@material-ui/core/Button'
-import { Container } from '@material-ui/core'
-import SendIcon from '@material-ui/icons/Send'
-import axios from 'axios'
-import Land from '../abis/LandRegistry.json'
-import { withStyles } from '@material-ui/core/styles'
+import React, { Component } from 'react';
+import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+import { Container } from '@material-ui/core';
+import SendIcon from '@material-ui/icons/Send';
+import axios from 'axios';
+import Land from '../abis/LandRegistry.json';
+import { withStyles } from '@material-ui/core/styles';
+import getWeb3 from '../utils/getWeb3';
 
 const styles = () => ({
   root: {
@@ -13,109 +14,97 @@ const styles = () => ({
     top: '50%',
     left: '50%',
     transform: 'translate(-50%,-50%)',
-    '& .MuiFormLabel-root': {
-      color: '#fff',
-    },
-    '& .MuiInputBase-root': {
-      color: '#fff',
-    },
-    '& .MuiInput-underline:before': {
-      borderBottomColor: '#fff',
-    },
-    '& .MuiInput-underline:after': {
-      borderBottomColor: '#fff',
-    },
-    '& .MuiInput-underline:hover': {
-      borderBottomColor: '#fff',
-    },
+    '& .MuiFormLabel-root': { color: '#fff' },
+    '& .MuiInputBase-root': { color: '#fff' },
+    '& .MuiInput-underline:before': { borderBottomColor: '#fff' },
+    '& .MuiInput-underline:after': { borderBottomColor: '#fff' },
+    '& .MuiInput-underline:hover': { borderBottomColor: '#fff' },
     '& .MuiButton-containedPrimary': {
       backgroundColor: '#328888',
       fontFamily: "'Roboto Condensed', sans-serif",
     },
   },
-})
+});
 
 class Register extends Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      name: '',
-      email: '',
-      address: '', // The Ethereum address (privateKey)
-      postalCode: '',
-      city: '',
-      contact: '',
-      account: '',
-      landList: null, // Store the smart contract instance
-    }
-  }
+  state = {
+    name: '',
+    email: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    contact: '',
+    account: '',
+    landList: null,
+  };
 
   componentDidMount = async () => {
-    const web3 = window.web3
-    const accounts = await web3.eth.getAccounts()
-    window.localStorage.setItem('web3account', accounts[0])
-    this.setState({ account: accounts[0] })
+    try {
+      const web3 = await getWeb3();
+      const accounts = await web3.eth.requestAccounts();
+      const account = accounts[0];
+      window.localStorage.setItem('web3account', account);
+      this.setState({ account });
 
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
-    } else {
-      alert('Token contract not deployed to detected network.')
+      const networkId = await web3.eth.net.getId();
+      const deployedNetwork = Land.networks[networkId];
+
+      if (!deployedNetwork) {
+        alert('Smart contract not deployed to detected network.');
+        return;
+      }
+
+      const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
+      this.setState({ landList });
+
+      if (window.localStorage.getItem('authenticated') === 'true') {
+        window.location = '/dashboard';
+      }
+    } catch (error) {
+      console.error('Error initializing web3', error);
+      alert('Failed to connect to MetaMask. Check console.');
     }
+  };
 
-    if (window.localStorage.getItem('authenticated') === 'true') {
-      window.location = '/dashboard'
+  handleChange = (field) => (event) => {
+    this.setState({ [field]: event.target.value });
+  };
+
+  validateEmail = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
+
+  login = async ({ privateKey, name, contact, email, postalCode, city }) => {
+    const { landList, account } = this.state;
+
+    try {
+      await landList.methods
+        .addUser(privateKey, name, contact, email, postalCode, city)
+        .send({ from: account, gas: 1000000 })
+        .on('receipt', () => {
+          alert('User registered successfully!');
+          window.location = '/login';
+        });
+    } catch (err) {
+      console.error('Smart contract error:', err);
+      alert('Blockchain registration failed.');
     }
-  }
-
-  handleChange = (name) => (event) => {
-    this.setState({ [name]: event.target.value })
-  }
-
-  validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return re.test(String(email).toLowerCase())
-  }
-
-  login = async (data) => {
-    const { landList, account } = this.state
-    await landList.methods
-      .addUser(
-        data.privateKey,
-        data.name,
-        data.contact,
-        data.email,
-        data.postalCode,
-        data.city
-      )
-      .send({ from: account, gas: 1000000 })
-      .on('receipt', (receipt) => {
-        if (receipt) {
-          alert('User has been added successfully!')
-          window.location = '/login'
-        } else {
-          alert('Could not add User. Please try again')
-        }
-      })
-  }
+  };
 
   handleSubmit = async () => {
-    const { name, email, contact, address, city, postalCode } = this.state
+    const { name, email, contact, address, city, postalCode } = this.state;
 
     if (!name || !email || !contact || !address || !city || !postalCode) {
-      alert('All fields are required.')
-      return
+      alert('All fields are required.');
+      return;
     }
 
     if (!this.validateEmail(email)) {
-      alert('Please enter a valid email address.')
-      return
+      alert('Enter a valid email address.');
+      return;
     }
 
     try {
-      const response = await axios.post('/signup', {
+      const response = await axios.post('http://localhost:4000/signup', {
         name,
         email,
         contact,
@@ -123,9 +112,9 @@ class Register extends Component {
         city,
         postalCode,
       });
-    
+
       if (response.data.success) {
-        alert('Signup successful!');
+        alert('Signup API call successful!');
         this.login({
           privateKey: address,
           name,
@@ -138,83 +127,29 @@ class Register extends Component {
         alert(response.data.message || 'Signup failed');
       }
     } catch (error) {
-      console.error('Signup error:', error);
-      alert('Signup failed. Check console.');
+      console.error('API error:', error);
+      alert('API signup failed.');
     }
-    
-  }
+  };
 
   render() {
-    const { classes } = this.props
-    const { name, email, contact, address, city, postalCode } = this.state
+    const { classes } = this.props;
+    const { name, email, contact, address, city, postalCode } = this.state;
 
     return (
       <div className="profile-bg">
-        <Container style={{ marginTop: '40px' }} className={classes.root}>
+        <Container className={classes.root}>
           <div className="register-text">Register Here</div>
           <div className="input">
-            <TextField
-              label="Name"
-              placeholder="Enter Your Name"
-              fullWidth
-              value={name}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('name')}
-            />
-            <TextField
-              label="Email Address"
-              placeholder="Enter Your Email Address"
-              fullWidth
-              value={email}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('email')}
-            />
-            <TextField
-              label="Contact Number"
-              placeholder="Enter Your Contact Number"
-              fullWidth
-              value={contact}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('contact')}
-            />
-            <TextField
-              label="Ethereum Address"
-              placeholder="Enter Your Ethereum Address"
-              fullWidth
-              value={address}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('address')}
-            />
-            <TextField
-              label="City"
-              placeholder="Enter Your City"
-              fullWidth
-              value={city}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('city')}
-            />
-            <TextField
-              label="Postal Code"
-              placeholder="Enter Your Postal Code"
-              fullWidth
-              value={postalCode}
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-              onChange={this.handleChange('postalCode')}
-            />
+            <TextField label="Name" fullWidth value={name} margin="normal" onChange={this.handleChange('name')} />
+            <TextField label="Email" fullWidth value={email} margin="normal" onChange={this.handleChange('email')} />
+            <TextField label="Contact" fullWidth value={contact} margin="normal" onChange={this.handleChange('contact')} />
+            <TextField label="Ethereum Address" fullWidth value={address} margin="normal" onChange={this.handleChange('address')} />
+            <TextField label="City" fullWidth value={city} margin="normal" onChange={this.handleChange('city')} />
+            <TextField label="Postal Code" fullWidth value={postalCode} margin="normal" onChange={this.handleChange('postalCode')} />
           </div>
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <Button
-              variant="contained"
-              color="primary"
-              endIcon={<SendIcon />}
-              onClick={this.handleSubmit}
-            >
+            <Button variant="contained" color="primary" endIcon={<SendIcon />} onClick={this.handleSubmit}>
               Sign Up
             </Button>
           </div>
@@ -226,8 +161,8 @@ class Register extends Component {
           </div>
         </Container>
       </div>
-    )
+    );
   }
 }
 
-export default withStyles(styles)(Register)
+export default withStyles(styles)(Register);
