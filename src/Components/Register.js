@@ -115,17 +115,17 @@ class Register extends Component {
     }
 
     try {
-      const response = await axios.post('http://localhost:4000/signup', {
+      const response = await axios.post('/signup', {
         name,
         email,
         contact,
-        accountAddress: address, // Assuming address is the Ethereum account address
+        accountAddress: address,
         city,
         postalCode,
-      })
-
+      });
+    
       if (response.data.success) {
-        alert('Signup successful!')
+        alert('Signup successful!');
         this.login({
           privateKey: address,
           name,
@@ -133,14 +133,15 @@ class Register extends Component {
           email,
           postalCode,
           city,
-        })
+        });
       } else {
-        alert(response.data.message || 'Signup failed')
+        alert(response.data.message || 'Signup failed');
       }
     } catch (error) {
-      console.error('Signup error:', error)
-      alert('Signup failed. Check console.')
+      console.error('Signup error:', error);
+      alert('Signup failed. Check console.');
     }
+    
   }
 
   render() {
