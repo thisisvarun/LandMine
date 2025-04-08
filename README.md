@@ -34,13 +34,10 @@ Refer to https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefn
 #### Make an account on MongoDB Altas
 https://www.mongodb.com/cloud/atlas
 
-#### Create an account on Vonage (Previously Nexmo)
-https://dashboard.nexmo.com/sign-up
-
 ## Getting Started
 To set up the project, go along with the following steps:-
 - Clone the repository. <br/>
-`$ git clone https://github.com/1209simran/Land-Registry-Application.git`
+`$ git clone https://github.com/thisisvarun/LandMine.git`
 - Go to the directory with the repository. <br/>
 `$ cd folder_name`
 - Run **npm install** (or **yarn install** if you use yarn) to download the npm packages. <br/>
@@ -64,8 +61,8 @@ To set up the project, go along with the following steps:-
 - Open another terminal and execute the following command to add the government registrar detail to the database. <br/>
 `$ curl -X POST http://localhost:3001/register_govt`
 - Credentials for government login:- <br/>
-Username:- Delhi Government <br/>
-Password:- Delhi
+Username:- admin <br/>
+Password:- admin123
 - You're all done. Enjoy!
 
 ## Workflow
