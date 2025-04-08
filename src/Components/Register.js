@@ -4,9 +4,9 @@ import Button from '@material-ui/core/Button';
 import { Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
 import axios from 'axios';
+import Web3 from 'web3';
 import Land from '../abis/LandRegistry.json';
 import { withStyles } from '@material-ui/core/styles';
-import getWeb3 from '../utils/getWeb3';
 
 const styles = () => ({
   root: {
@@ -27,80 +27,67 @@ const styles = () => ({
 });
 
 class Register extends Component {
-  state = {
-    name: '',
-    email: '',
-    address: '',
-    postalCode: '',
-    city: '',
-    contact: '',
-    account: '',
-    landList: null,
-  };
+  constructor(props) {
+    super(props);
+    this.state = {
+      name: '',
+      email: '',
+      accountAddress: '',
+      postalCode: '',
+      city: '',
+      contact: '',
+      account: '',
+      web3: null,
+      landList: null,
+    };
+  }
 
   componentDidMount = async () => {
-    try {
-      const web3 = await getWeb3();
-      const accounts = await web3.eth.requestAccounts();
-      const account = accounts[0];
-      window.localStorage.setItem('web3account', account);
-      this.setState({ account });
-
+    if (window.ethereum) {
+      const web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();
+      const accounts = await web3.eth.getAccounts();
       const networkId = await web3.eth.net.getId();
       const deployedNetwork = Land.networks[networkId];
 
-      if (!deployedNetwork) {
-        alert('Smart contract not deployed to detected network.');
-        return;
-      }
-
-      const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
-      this.setState({ landList });
-
-      if (window.localStorage.getItem('authenticated') === 'true') {
-        window.location = '/dashboard';
-      }
-    } catch (error) {
-      console.error('Error initializing web3', error);
-      alert('Failed to connect to MetaMask. Check console.');
-    }
-  };
-
-  handleChange = (field) => (event) => {
-    this.setState({ [field]: event.target.value });
-  };
-
-  validateEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
-
-  login = async ({ privateKey, name, contact, email, postalCode, city }) => {
-    const { landList, account } = this.state;
-
-    try {
-      await landList.methods
-        .addUser(privateKey, name, contact, email, postalCode, city)
-        .send({ from: account, gas: 1000000 })
-        .on('receipt', () => {
-          alert('User registered successfully!');
-          window.location = '/login';
+      if (deployedNetwork) {
+        const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
+        this.setState({
+          web3,
+          landList,
+          account: accounts[0],
+          accountAddress: accounts[0],
         });
-    } catch (err) {
-      console.error('Smart contract error:', err);
-      alert('Blockchain registration failed.');
+      } else {
+        alert('Smart contract not deployed on detected network.');
+      }
+    } else {
+      alert('Please install MetaMask.');
     }
+
+    if (window.localStorage.getItem('authenticated') === 'true') {
+      window.location = '/dashboard';
+    }
+  };
+
+  handleChange = (field) => (e) => {
+    this.setState({ [field]: e.target.value });
+  };
+
+  validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
   };
 
   handleSubmit = async () => {
-    const { name, email, contact, address, city, postalCode } = this.state;
+    const { name, email, contact, accountAddress, city, postalCode } = this.state;
 
-    if (!name || !email || !contact || !address || !city || !postalCode) {
-      alert('All fields are required.');
-      return;
+    if (!name || !email || !contact || !accountAddress || !city || !postalCode) {
+      return alert('All fields are required.');
     }
 
     if (!this.validateEmail(email)) {
-      alert('Enter a valid email address.');
-      return;
+      return alert('Invalid email address.');
     }
 
     try {
@@ -108,45 +95,53 @@ class Register extends Component {
         name,
         email,
         contact,
-        accountAddress: address,
+        accountAddress,
         city,
         postalCode,
       });
 
       if (response.data.success) {
-        alert('Signup API call successful!');
-        this.login({
-          privateKey: address,
-          name,
-          contact,
-          email,
-          postalCode,
-          city,
-        });
+        this.registerOnBlockchain();
       } else {
-        alert(response.data.message || 'Signup failed');
+        alert(response.data.message || 'Signup failed.');
       }
+    } catch (err) {
+      console.error('Signup error:', err);
+      alert('Server error during signup.');
+    }
+  };
+
+  registerOnBlockchain = async () => {
+    const { landList, account, name, email, contact, city, postalCode, accountAddress } = this.state;
+
+    try {
+      await landList.methods
+        .addUser(accountAddress, name, contact, email, postalCode, city)
+        .send({ from: account, gas: 1000000 });
+
+      alert('Registration successful!');
+      window.location = '/login';
     } catch (error) {
-      console.error('API error:', error);
-      alert('API signup failed.');
+      console.error('Blockchain error:', error);
+      alert('Blockchain registration failed.');
     }
   };
 
   render() {
     const { classes } = this.props;
-    const { name, email, contact, address, city, postalCode } = this.state;
+    const { name, email, contact, accountAddress, city, postalCode } = this.state;
 
     return (
       <div className="profile-bg">
-        <Container className={classes.root}>
+        <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="register-text">Register Here</div>
           <div className="input">
-            <TextField label="Name" fullWidth value={name} margin="normal" onChange={this.handleChange('name')} />
-            <TextField label="Email" fullWidth value={email} margin="normal" onChange={this.handleChange('email')} />
-            <TextField label="Contact" fullWidth value={contact} margin="normal" onChange={this.handleChange('contact')} />
-            <TextField label="Ethereum Address" fullWidth value={address} margin="normal" onChange={this.handleChange('address')} />
-            <TextField label="City" fullWidth value={city} margin="normal" onChange={this.handleChange('city')} />
-            <TextField label="Postal Code" fullWidth value={postalCode} margin="normal" onChange={this.handleChange('postalCode')} />
+            <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
+            <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />
+            <TextField label="Contact Number" fullWidth margin="normal" value={contact} onChange={this.handleChange('contact')} />
+            <TextField label="Ethereum Address" fullWidth margin="normal" value={accountAddress} onChange={this.handleChange('accountAddress')} />
+            <TextField label="City" fullWidth margin="normal" value={city} onChange={this.handleChange('city')} />
+            <TextField label="Postal Code" fullWidth margin="normal" value={postalCode} onChange={this.handleChange('postalCode')} />
           </div>
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <Button variant="contained" color="primary" endIcon={<SendIcon />} onClick={this.handleSubmit}>
@@ -154,10 +149,7 @@ class Register extends Component {
             </Button>
           </div>
           <div style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}>
-            Already have an account?{' '}
-            <a href="/login" style={{ color: '#328888' }}>
-              Login here
-            </a>
+            Already have an account? <a href="/login" style={{ color: '#328888' }}>Login here</a>
           </div>
         </Container>
       </div>
