@@ -1,7 +1,7 @@
 
 # Smart Contract Based Land Registry System using Ethereum Blockchain
 
-![Land Registry](https://github.com/Nagendra10pratap/Smart-Contract-Based-Land-Registry-System-using-Ethereum-Blockchain/assets/159735419/167babdb-6a35-4056-b590-5823dd85976d)
+![Land Registry](https://github.com/thisisvarun/LandMine.git)
 
 
 ## Abstract
