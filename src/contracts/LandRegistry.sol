@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-address payable constant govtAddress = payable(0x383E286EA48E1626605e349C6a72c11e10CC46F1);
+// ✅ Updated government wallet address
+address payable constant govtAddress = payable(0x4335BdD13cB56abf4542b841a0e7ca9fb7f4CBFc);
 
 contract LandRegistry {
     struct Task {
@@ -192,18 +193,18 @@ contract LandRegistry {
     }
 
     function calculateStampDuty(uint256 amount) public pure returns (uint256) {
-        uint256 stampDutyPercentage = 5;
+        uint256 stampDutyPercentage = 7; // ✅ 7% stamp duty
         return (amount * stampDutyPercentage) / 100;
     }
 
     function buyProperty(uint256 property) public payable {
         require(land[property].requestStatus == reqStatus.Approved);
-        require(msg.value == (land[property].lamount * 1000000000000000000));
+        require(msg.value == (land[property].lamount * 1 ether));
 
-        uint256 stampDuty = calculateStampDuty(land[property].lamount);
+        uint256 stampDuty = calculateStampDuty(land[property].lamount * 1 ether);
         
         govtAddress.transfer(stampDuty);
-        land[property].id.transfer(land[property].lamount * 1000000000000000000 - stampDuty);
+        land[property].id.transfer(msg.value - stampDuty);
 
         removeOwnership(land[property].id, property);
         land[property].id = payable(msg.sender);
