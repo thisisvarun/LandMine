@@ -71,7 +71,6 @@ class App extends Component {
           <Switch>
             <Route exact path="/" render={() => <Home authenticated={this.state.authenticated} govtAuthenticated={this.state.govtAuthenticated} />} />
             <Route exact path="/signup" component={Register} />
-            <Route exact path="/login" component={CombinedLogin} />
             <Route exact path="/dashboard" component={Dashboard} />
             <Route exact path="/login" component={CombinedLogin} />
             <Route exact path="/profile" component={Profile} />
