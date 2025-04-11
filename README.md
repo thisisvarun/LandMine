@@ -59,7 +59,7 @@ To set up the project, go along with the following steps:-
 - Run the server using this command:- <br/>
 `$ npm start`
 - Open another terminal and execute the following command to add the government registrar detail to the database. <br/>
-`$ curl -X POST http://localhost:3001/register_govt`
+`$ curl -X POST http://localhost:3000/register_govt`
 - Credentials for government login:- <br/>
 Username:- admin <br/>
 Password:- admin123
