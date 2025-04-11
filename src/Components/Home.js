@@ -56,17 +56,9 @@ export default class Home extends Component {
     return (
       <div className="bg">
         <div className="home-text">
-          Land Registry
+          Secure Land<br></br>Registration
           <br /> Application
-          <div className="typewriter">
-            <Typewriter
-              cursorColor="#fff"
-              multiText={[
-                "Trustable, Transparent and Digitalized Platform",
-                "Open for all! Register Now.",
-              ]}
-            />
-          </div>
+          
           <hr
             style={{
               border: "8px solid #fff",

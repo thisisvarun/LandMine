@@ -40,6 +40,7 @@ class Register extends Component {
       web3: null,
       landList: null,
       signature: '',
+      errorMessage: '',
     };
   }
 
@@ -72,7 +73,7 @@ class Register extends Component {
   };
 
   handleChange = (field) => (e) => {
-    this.setState({ [field]: e.target.value });
+    this.setState({ [field]: e.target.value, errorMessage: '' });
   };
 
   validateEmail = (email) => {
@@ -84,11 +85,11 @@ class Register extends Component {
     const { name, email, contact, accountAddress, city, postalCode } = this.state;
 
     if (!name || !email || !contact || !accountAddress || !city || !postalCode) {
-      return alert('All fields are required.');
+      return this.setState({ errorMessage: 'All fields are required.' });
     }
 
     if (!this.validateEmail(email)) {
-      return alert('Invalid email address.');
+      return this.setState({ errorMessage: 'Invalid email address.' });
     }
 
     try {
@@ -105,11 +106,11 @@ class Register extends Component {
       if (response.data.success) {
         this.registerOnBlockchain();
       } else {
-        alert(response.data.message || 'Signup failed.');
+        this.setState({ errorMessage: response.data.message || 'Signup failed.' });
       }
     } catch (err) {
       console.error('Signup error:', err);
-      alert('Server error during signup.');
+      this.setState({ errorMessage: 'Server error during signup.' });
     }
   };
 
@@ -139,12 +140,13 @@ class Register extends Component {
 
   render() {
     const { classes } = this.props;
-    const { name, email, contact, accountAddress, city, postalCode } = this.state;
+    const { name, email, contact, accountAddress, city, postalCode, errorMessage } = this.state;
 
     return (
       <div className="profile-bg">
         <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="register-text">Register Here</div>
+          {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
           <div className="input">
             <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
             <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />
