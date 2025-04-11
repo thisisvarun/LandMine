@@ -7,10 +7,8 @@ import {
   Route,
 } from 'react-router-dom';
 import Register from './Components/Register';
-import Login from './Components/Login';
 import Dashboard from './Components/Dashboard';
 import Header from './Containers/Header';
-import Govt_login from './Components/Govt_Login';
 import RegistrationForm from './Containers/RegistrationForm';
 import Dashboard_Govt from './Components/Dashboard_Govt';
 import Profile from './Components/Profile';

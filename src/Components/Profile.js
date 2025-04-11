@@ -8,6 +8,7 @@ import PhoneIcon from '@material-ui/icons/Phone';
 import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import AccountBalanceWalletIcon from '@material-ui/icons/AccountBalanceWallet';
 import { withRouter } from 'react-router-dom';
+import Web3 from 'web3';
 
 class Profile extends Component {
   constructor(props) {

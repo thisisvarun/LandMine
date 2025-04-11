@@ -14,6 +14,7 @@ import Box from '@material-ui/core/Box'
 import PropTypes from 'prop-types'
 import RegistrationForm from '../Containers/RegistrationForm'
 import axios from 'axios'
+import Web3 from 'web3'
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props

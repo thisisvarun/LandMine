@@ -57,7 +57,7 @@ class Register extends Component {
           web3,
           landList,
           account: accounts[0],
-          accountAddress: accounts[0],
+          accountAddress: accounts[0],  // Setting the Ethereum address
         });
       } else {
         alert('Smart contract not deployed on detected network.');
@@ -149,7 +149,6 @@ class Register extends Component {
             <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
             <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />
             <TextField label="Contact Number" fullWidth margin="normal" value={contact} onChange={this.handleChange('contact')} />
-            <TextField label="Ethereum Address" fullWidth margin="normal" value={accountAddress} disabled />
             <TextField label="City" fullWidth margin="normal" value={city} onChange={this.handleChange('city')} />
             <TextField label="Postal Code" fullWidth margin="normal" value={postalCode} onChange={this.handleChange('postalCode')} />
           </div>
