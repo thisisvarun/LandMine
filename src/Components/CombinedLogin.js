@@ -36,9 +36,10 @@ class CombinedLogin extends Component {
     super(props);
     this.state = {
       isGovtLogin: false, // Tracks whether it's government login or not
-      privateKey: '',
-      username: '',
+      email: '',
       password: '',
+      username: '',
+      privateKey: '',
       privateKeyError: false,
       privateKeyHelperText: '',
       loading: false,
@@ -81,7 +82,7 @@ class CombinedLogin extends Component {
   };
 
   handleSubmit = async () => {
-    const { isGovtLogin, username, password, privateKey } = this.state;
+    const { isGovtLogin, username, password, email, privateKey } = this.state;
     this.setState({ loading: true });
 
     if (isGovtLogin) {
@@ -93,21 +94,23 @@ class CombinedLogin extends Component {
         alert('Invalid credentials. Try admin/admin123 for demo.');
       }
     } else {
-      // User login logic
+      // User login logic for Trust Wallet
       if (!this.validatePrivateKey()) return;
 
       if (!window.ethereum) {
-        alert('Please install MetaMask!');
+        alert('Please install Trust Wallet!');
         return;
       }
 
       try {
+        // Request user's account from Trust Wallet
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const account = accounts[0];
 
         // Store login data
         window.localStorage.setItem('authenticated', 'true');
         window.localStorage.setItem('account', account);
+        window.localStorage.setItem('email', email); // Store email for general users
 
         // Redirect to user dashboard
         this.props.history.push('/dashboard'); // Redirect to user dashboard
@@ -122,7 +125,7 @@ class CombinedLogin extends Component {
 
   render() {
     const { classes } = this.props;
-    const { isGovtLogin, privateKey, username, password, privateKeyError, privateKeyHelperText, loading, error } = this.state;
+    const { isGovtLogin, privateKey, username, password, email, privateKeyError, privateKeyHelperText, loading, error } = this.state;
 
     return (
       <div className="profile-bg">
@@ -170,6 +173,13 @@ class CombinedLogin extends Component {
             </>
           ) : (
             <>
+              <TextField
+                label="Email"
+                fullWidth
+                value={email}
+                margin="normal"
+                onChange={this.handleChange('email')}
+              />
               <TextField
                 id="private-key-input"
                 type="password"

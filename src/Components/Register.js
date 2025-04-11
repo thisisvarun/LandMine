@@ -39,13 +39,14 @@ class Register extends Component {
       account: '',
       web3: null,
       landList: null,
+      signature: '',
     };
   }
 
   componentDidMount = async () => {
     if (window.ethereum) {
       const web3 = new Web3(window.ethereum);
-      await window.ethereum.enable();
+      await window.ethereum.enable();  // Ensure Trust Wallet is connected
       const accounts = await web3.eth.getAccounts();
       const networkId = await web3.eth.net.getId();
       const deployedNetwork = Land.networks[networkId];
@@ -62,7 +63,7 @@ class Register extends Component {
         alert('Smart contract not deployed on detected network.');
       }
     } else {
-      alert('Please install MetaMask.');
+      alert('Please install Trust Wallet or MetaMask.');
     }
 
     if (window.localStorage.getItem('authenticated') === 'true') {
@@ -91,6 +92,7 @@ class Register extends Component {
     }
 
     try {
+      // Send the user details to backend for registration
       const response = await axios.post('http://localhost:4000/signup', {
         name,
         email,
@@ -115,6 +117,14 @@ class Register extends Component {
     const { landList, account, name, email, contact, city, postalCode, accountAddress } = this.state;
 
     try {
+      // User signs a message with their wallet
+      const message = `Sign this message to register: ${name}`;
+      const signature = await this.state.web3.eth.personal.sign(message, account, '');
+
+      // Save the signature in the state for verification
+      this.setState({ signature });
+
+      // Now, proceed to register the user on the blockchain
       await landList.methods
         .addUser(accountAddress, name, contact, email, postalCode, city)
         .send({ from: account, gas: 1000000 });
@@ -139,7 +149,7 @@ class Register extends Component {
             <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
             <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />
             <TextField label="Contact Number" fullWidth margin="normal" value={contact} onChange={this.handleChange('contact')} />
-            <TextField label="Ethereum Address" fullWidth margin="normal" value={accountAddress} onChange={this.handleChange('accountAddress')} />
+            <TextField label="Ethereum Address" fullWidth margin="normal" value={accountAddress} disabled />
             <TextField label="City" fullWidth margin="normal" value={city} onChange={this.handleChange('city')} />
             <TextField label="Postal Code" fullWidth margin="normal" value={postalCode} onChange={this.handleChange('postalCode')} />
           </div>

@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import Typewriter from "react-typewriter-effect";
+import Web3 from 'web3';
 
 export default class Home extends Component {
   constructor(props) {
@@ -7,6 +8,7 @@ export default class Home extends Component {
     this.state = {
       isAuthenticated: false,
       isGovtAuthenticated: false,
+      account: '',
     };
   }
 
@@ -14,16 +16,26 @@ export default class Home extends Component {
     this.checkAuthentication();
   }
 
-  checkAuthentication = () => {
-    const isGovtAuth = window.localStorage.getItem('govtAuthenticated') === 'true';
-    const isUserAuth = window.localStorage.getItem('authenticated') === 'true';
-  
-    this.setState({
-      isGovtAuthenticated: isGovtAuth,
-      isAuthenticated: isUserAuth,
-    });
+  checkAuthentication = async () => {
+    // Check if Trust Wallet is connected
+    if (window.ethereum) {
+      const web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();  // Ensure the wallet is connected
+      const accounts = await web3.eth.getAccounts();
+
+      if (accounts && accounts.length > 0) {
+        const account = accounts[0];
+        const isUserAuth = window.localStorage.getItem('authenticated') === 'true';
+        const isGovtAuth = window.localStorage.getItem('govtAuthenticated') === 'true';
+
+        this.setState({
+          isAuthenticated: isUserAuth,
+          isGovtAuthenticated: isGovtAuth,
+          account: account,
+        });
+      }
+    }
   };
-  
 
   handleLogout = () => {
     window.localStorage.removeItem("govtAuthenticated");
@@ -31,13 +43,13 @@ export default class Home extends Component {
     window.localStorage.removeItem("account");
     window.localStorage.removeItem("web3account");
 
-    this.setState({ isAuthenticated: false, isGovtAuthenticated: false });
+    this.setState({ isAuthenticated: false, isGovtAuthenticated: false, account: '' });
 
     this.props.history.push("/");
   };
 
   render() {
-    const { isAuthenticated, isGovtAuthenticated } = this.state;
+    const { isAuthenticated, isGovtAuthenticated, account } = this.state;
     const notLoggedIn = !isAuthenticated && !isGovtAuthenticated;
     const isGovt = isGovtAuthenticated && !isAuthenticated;
 
@@ -81,6 +93,12 @@ export default class Home extends Component {
             <button onClick={this.handleLogout}>
               Logout {isGovtAuthenticated ? "(Govt)" : ""}
             </button>
+          </div>
+        )}
+
+        {account && (
+          <div className="account-info">
+            <p>Connected Wallet Address: {account}</p>
           </div>
         )}
       </div>

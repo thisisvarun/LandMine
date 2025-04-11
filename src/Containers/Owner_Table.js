@@ -96,19 +96,38 @@ class table extends Component {
     }
   }
   componentDidMount = async () => {
-    const web3 = window.web3
-    const accounts = await web3.eth.getAccounts()
-    await window.localStorage.setItem('web3account', accounts[0])
-    this.setState({ account: accounts[0] })
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
+    let web3;
+  
+    if (window.ethereum) {
+      // Check if Trust Wallet or any other web3 provider is available
+      web3 = new Web3(window.ethereum);
+      try {
+        // Request access to the user's wallet
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        await window.localStorage.setItem('web3account', accounts[0]);
+        this.setState({ account: accounts[0] });
+      } catch (error) {
+        console.error("User denied account access", error);
+      }
+    } else if (window.web3) {
+      // Fallback for older browser extension or MetaMask
+      web3 = new Web3(window.web3.currentProvider);
     } else {
-      window.alert('Token contract not deployed to detected network.')
+      window.alert('Please install a web3-enabled browser like Trust Wallet or MetaMask.');
+    }
+  
+    const networkId = await web3.eth.net.getId();
+    const LandData = Land.networks[networkId];
+    
+    if (LandData) {
+      const landList = new web3.eth.Contract(Land.abi, LandData.address);
+      this.setState({ landList });
+    } else {
+      window.alert('Token contract not deployed to detected network.');
     }
   }
+  
 
   handleAccept = async (id) => {
     await this.state.landList.methods.makeAvailable(id).send({

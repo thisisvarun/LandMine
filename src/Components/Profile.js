@@ -28,49 +28,51 @@ class Profile extends Component {
   }
 
   async componentDidMount() {
-    const web3 = window.web3;
+    if (window.ethereum) {
+      const web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();  // Ensure Trust Wallet is connected
 
-    if (!web3) {
-      alert('Web3 not found. Please connect your wallet.');
-      return;
-    }
+      // Get the connected account
+      const accounts = await web3.eth.getAccounts();
+      if (!accounts || accounts.length === 0) {
+        alert('No wallet account found.');
+        return;
+      }
 
-    const accounts = await web3.eth.getAccounts();
-    if (!accounts || accounts.length === 0) {
-      alert('No wallet account found.');
-      return;
-    }
+      const account = accounts[0];
+      const balanceWei = await web3.eth.getBalance(account);
+      const balanceEth = web3.utils.fromWei(balanceWei, 'ether');
 
-    const account = accounts[0];
-    const balanceWei = await web3.eth.getBalance(account);
-    const balanceEth = web3.utils.fromWei(balanceWei, 'ether');
+      this.setState({ account, balance: balanceEth });
 
-    this.setState({ account, balance: balanceEth });
+      const networkId = await web3.eth.net.getId();
+      const LandData = Land.networks[networkId];
+      if (LandData) {
+        const landList = new web3.eth.Contract(Land.abi, LandData.address);
+        this.setState({ landList });
 
-    const networkId = await web3.eth.net.getId();
-    const LandData = Land.networks[networkId];
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address);
-      this.setState({ landList });
+        // Fetch user details from the blockchain using the wallet address
+        const user = await landList.methods.getUser(account).call();
+        this.setState({
+          uid: user[0],
+          uname: user[1],
+          ucontact: user[2],
+          uemail: user[3],
+          ucode: user[4],
+          ucity: user[5],
+          exist: user[6],
+        });
+      } else {
+        window.alert('Smart contract not deployed to the detected network.');
+      }
 
-      const user = await landList.methods.getUser(account).call();
-      this.setState({
-        uid: user[0],
-        uname: user[1],
-        ucontact: user[2],
-        uemail: user[3],
-        ucode: user[4],
-        ucity: user[5],
-        exist: user[6],
-      });
+      // Redirect if not authenticated (checking localStorage for authentication)
+      const auth = window.localStorage.getItem('authenticated');
+      if (!auth || auth !== 'true') {
+        this.props.history.push('/login');
+      }
     } else {
-      window.alert('Token contract not deployed to the detected network.');
-    }
-
-    // Redirect if not authenticated
-    const auth = window.localStorage.getItem('authenticated');
-    if (!auth || auth !== 'true') {
-      this.props.history.push('/login');
+      alert('Please install Trust Wallet or MetaMask.');
     }
   }
 

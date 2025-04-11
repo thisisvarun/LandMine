@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
-//{ withRouter, Redirect } from 'react-router-dom'
-import {Container, CircularProgress } from '@material-ui/core'
+// { withRouter, Redirect } from 'react-router-dom'
+import { Container, CircularProgress } from '@material-ui/core'
 import Land from '../abis/LandRegistry.json'
 import ipfs from '../ipfs'
 import Table from '../Containers/Owner_Table'
@@ -12,10 +12,8 @@ import Tab from '@material-ui/core/Tab'
 import Typography from '@material-ui/core/Typography'
 import Box from '@material-ui/core/Box'
 import PropTypes from 'prop-types'
-// import SwipeableViews from 'react-swipeable-views'
 import RegistrationForm from '../Containers/RegistrationForm'
 import axios from 'axios'
-
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props
@@ -58,7 +56,6 @@ const styles = (theme) => ({
   },
   root: {
     backgroundColor: '#fff',
-    // width: 500,
     borderRadius: '5px',
     minHeight: '80vh',
   },
@@ -74,24 +71,28 @@ class Dashboard extends Component {
       value: 0,
     }
   }
+
   componentDidMount = async () => {
-    const web3 = window.web3
-    const accounts = await web3.eth.getAccounts()
+    // Use Trust Wallet via the Web3 provider
+    const web3 = new Web3(window.ethereum) // Trust Wallet uses window.ethereum
+    const accounts = await web3.eth.requestAccounts() // Request accounts via Trust Wallet
     await window.localStorage.setItem('web3account', accounts[0])
     this.setState({ account: accounts[0] })
+
     const networkId = await web3.eth.net.getId()
     const LandData = Land.networks[networkId]
+
     if (LandData) {
       const landList = new web3.eth.Contract(Land.abi, LandData.address)
       this.setState({ landList })
     } else {
       window.alert('Token contract not deployed to detected network.')
     }
-  
+
     this.setState({ isLoading: false })
     this.getDetails()
     this.getDetails1()
-  
+
     try {
       let res = await axios.get('http://localhost:4000/owner')
       res = res.data
@@ -100,7 +101,6 @@ class Dashboard extends Component {
       console.log(error)
     }
   }
-  
 
   async propertyDetails(property) {
     let details = await this.state.landList.methods
@@ -152,7 +152,6 @@ class Dashboard extends Component {
         return
       }
       const temp = JSON.parse(res.toString())
-      console.log('temp', temp)
 
       if (
         details[0] !== this.state.account &&
@@ -198,20 +197,22 @@ class Dashboard extends Component {
       this.propertyDetails(item)
     }
   }
+
   async getDetails1() {
     const properties = await this.state.landList.methods.Assets().call()
-    // console.log(properties)
-
     for (let item of properties) {
       this.propertyDetails1(item)
     }
   }
+
   handleChange = (event, newValue) => {
     this.setState({ value: newValue })
   }
+
   handleChangeIndex = (index) => {
     this.setState({ index })
   }
+
   render() {
     const { classes } = this.props
     return this.state.isLoading ? (
@@ -234,39 +235,22 @@ class Dashboard extends Component {
                 >
                   <Tab label="My Properties" {...a11yProps(0)} />
                   <Tab label="Available Properties" {...a11yProps(1)} />
-                  <Tab label="Regsiter Land" {...a11yProps(2)} />
+                  <Tab label="Register Land" {...a11yProps(2)} />
                 </Tabs>
               </AppBar>
-              {/* <SwipeableViews
-        axis={theme.direction === 'rtl' ? 'x-reverse' : 'x'}
-        index={value}
-        onChangeIndex={handleChangeIndex}
-      > */}
               <TabPanel value={this.state.value} index={0}>
                 <div style={{ marginTop: '60px' }}>
-                  {/* <h2 style={{ textAlign: 'center' }}>My Properties</h2> */}
                   <Table assetList={this.state.assetList} />
                 </div>
               </TabPanel>
               <TabPanel value={this.state.value} index={1}>
                 <div style={{ marginTop: '60px' }}>
-                  {/* <h2 style={{ textAlign: 'center' }}>Available Properties</h2> */}
                   <AvailableTable assetList={this.state.assetList1} />
                 </div>
               </TabPanel>
               <TabPanel value={this.state.value} index={2}>
                 <RegistrationForm />
               </TabPanel>
-
-              {/* </SwipeableViews> */}
-              {/* <Button
-              style={{ marginTop: '30px' }}
-              variant="contained"
-              color="primary"
-              onClick={() => this.props.history.push('/registration_form')}
-            >
-              Register Land
-            </Button> */}
             </div>
           </Container>
         </div>
@@ -274,4 +258,5 @@ class Dashboard extends Component {
     )
   }
 }
+
 export default withStyles(styles)(Dashboard)

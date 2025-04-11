@@ -1,18 +1,17 @@
-import React, { Component } from 'react'
-import TextField from '@material-ui/core/TextField'
-import Button from '@material-ui/core/Button'
-import { Container } from '@material-ui/core'
-import SendIcon from '@material-ui/icons/Send'
-import FormControlLabel from '@material-ui/core/FormControlLabel'
-import Checkbox from '@material-ui/core/Checkbox'
-import Land from '../abis/LandRegistry.json'
-import ipfs from '../ipfs'
+import React, { Component } from 'react';
+import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+import { Container } from '@material-ui/core';
+import SendIcon from '@material-ui/icons/Send';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Checkbox from '@material-ui/core/Checkbox';
+import Land from '../abis/LandRegistry.json';
+import ipfs from '../ipfs';
 import axios from 'axios';
-
 
 class Register extends Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
       name: '',
       email: '',
@@ -34,61 +33,69 @@ class Register extends Component {
       buffer: null,
       images: [],
       image: [],
-    }
+      account: null,
+      landList: null,
+      propertyId: null,
+    };
   }
 
   componentDidMount = async () => {
-    const web3 = window.web3
-    const acc = await window.localStorage.getItem('web3account')
-    this.setState({ account: acc })
-    // console.log(acc)
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
+    const web3 = window.web3;
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        this.setState({ account: accounts[0] });
+        window.ethereum.on('accountsChanged', (accounts) => {
+          this.setState({ account: accounts[0] });
+        });
+      } catch (error) {
+        window.alert('Please connect your Trust Wallet');
+      }
     } else {
-      window.alert('Token contract not deployed to detected network.')
+      window.alert('Please install Trust Wallet');
     }
-    if (
-      !window.localStorage.getItem('authenticated') ||
-      window.localStorage.getItem('authenticated') === 'false'
-    )
-      this.props.history.push('/login')
-  }
+
+    const networkId = await web3.eth.net.getId();
+    const LandData = Land.networks[networkId];
+    if (LandData) {
+      const landList = new web3.eth.Contract(Land.abi, LandData.address);
+      this.setState({ landList });
+    } else {
+      window.alert('Land contract not deployed to detected network.');
+    }
+
+    if (!window.localStorage.getItem('authenticated') || window.localStorage.getItem('authenticated') === 'false') {
+      this.props.history.push('/login');
+    }
+  };
+
   validateEmail = (emailField) => {
-    var reg = /^([A-Za-z0-9_])+([A-Za-z0-9_])+([A-Za-z]{2,4})$/
-    if (reg.test(emailField) === false) {
-      return false
-    }
-    return true
-  }
+    var reg = /^([A-Za-z0-9_])+([A-Za-z0-9_])+([A-Za-z]{2,4})$/;
+    return reg.test(emailField);
+  };
+
   handleChange = (name) => (event) => {
-    this.setState({ [name]: event.target.value })
-    console.log(this.state)
-  }
+    this.setState({ [name]: event.target.value });
+  };
+
   handleChangeCheckbox = (event) => {
-    this.setState({ checked: !this.state.checked })
-  }
+    this.setState({ checked: !this.state.checked });
+  };
 
   async propertyID(laddress, lamount) {
-    const propertyId = await this.state.landList.methods
-      .computeId(laddress, lamount)
-      .call()
-    this.setState({ propertyId })
-    console.log(propertyId)
+    const propertyId = await this.state.landList.methods.computeId(laddress, lamount).call();
+    this.setState({ propertyId });
   }
 
   async Register(data, account, laddress, lamount) {
-    var buf = Buffer.from(JSON.stringify(data))
-    const result = await ipfs.add(buf)
-    ipfs.files.add(buf, (error, result) =>{
-    console.log('Ipfs result', result)
+    var buf = Buffer.from(JSON.stringify(data));
+    const result = await ipfs.add(buf);
+    ipfs.files.add(buf, (error, result) => {
       if (error) {
-        console.error(error)
-        return
+        console.error(error);
+        return;
       }
-    
+
       this.state.landList.methods
         .Registration(
           account,
@@ -104,26 +111,22 @@ class Register extends Component {
           gas: 1000000,
         })
         .on('receipt', function (receipt) {
-          console.log(receipt)
           if (!receipt) {
-            console.log('Transaction Failed!!!')
+            console.log('Transaction Failed!!!');
           } else {
-            console.log('Transaction succesful')
-            window.alert('Transaction succesful')
-            console.log(data)
-            window.location = '/dashboard'
+            console.log('Transaction successful');
+            window.alert('Transaction successful');
+            window.location = '/dashboard';
           }
-        })
-      this.setState({ ipfsHash: result[0].hash })
-      })
-   
-
-    // console.log(transaction)
+        });
+      this.setState({ ipfsHash: result[0].hash });
+    });
   }
+
   handleSubmit = async () => {
-    const account = this.state.account
-    const laddress = this.state.laddress
-    const lamount = this.state.lamount
+    const account = this.state.account;
+    const laddress = this.state.laddress;
+    const lamount = this.state.lamount;
 
     let data = {
       name: this.state.name,
@@ -143,72 +146,46 @@ class Register extends Component {
       document: this.state.buffer,
       images: this.state.image,
       lamount: this.state.lamount,
-    }
-    console.log(data)
+    };
+
     if (data) {
       try {
-        const res = await axios.post('http://localhost:4000/owner', data)
-        this.propertyID(laddress, lamount)
-        this.Register(data, account, laddress, lamount)
+        const res = await axios.post('http://localhost:4000/owner', data);
+        this.propertyID(laddress, lamount);
+        this.Register(data, account, laddress, lamount);
       } catch (error) {
-        console.log('error:', error)
+        console.log('error:', error);
       }
+    } else {
+      window.alert('All fields are required.');
     }
-    else {
-      window.alert('All fields are required.')
-    }
-  }
-
+  };
 
   onChange = async (e) => {
-    // Assuming only image
-    const file = e.target.files[0]
-    // console.log(file)
-    // var reader = new FileReader()
-    const data = new FormData()
-    data.append('testImage', file)
+    const file = e.target.files[0];
+    const data = new FormData();
+    data.append('testImage', file);
 
-    const res = await axios.post('http://localhost:4000/images', data)
-    console.log(res)
-    // reader.readAsDataURL(file)
+    const res = await axios.post('http://localhost:4000/images', data);
+    console.log(res);
+  };
 
-    // reader.onloadend = () => {
-    //   this.setState({ buffer: reader.result })
-    // }
-  }
   fileSelectedHandler = async (e) => {
+    const data = new FormData();
+    data.append('testImage', e.target.files[0]);
 
-    const data = new FormData()
-    data.append('testImage', e.target.files[0])
-
-    const res = await axios.post('http://localhost:4000/images', data)
-    console.log(res)
+    const res = await axios.post('http://localhost:4000/images', data);
+    console.log(res);
     if (res.status === 200) {
-      const img = await axios.get('http://localhost:4000/images')
-      console.log(img)
+      const img = await axios.get('http://localhost:4000/images');
+      console.log(img);
     }
-
-    // this.setState({ images: [...e.target.files] })
-    // console.log(this.state.images)
-    //   for (let i = 0; i < this.state.images.length; i++) {
-    //     const file = this.state.images[i]
-    //     var reader = new FileReader()
-    //     reader.readAsDataURL(file)
-    //     console.log(file)
-
-    //     reader.onload = (e) => {
-    //       this.setState({ image: [...this.state.image, e.target.result] })
-    // }
-    // }
-  }
+  };
 
   render() {
     return (
       <Container style={{ marginTop: '30px' }}>
-        {console.log(this.state.image)}
-        <h1 style={{ textAlign: 'center', fontWeight: '600' }}>
-          Owner's Details
-        </h1>
+        <h1 style={{ textAlign: 'center', fontWeight: '600' }}>Owner's Details</h1>
         <div className="input">
           <TextField
             id="standard-full-width"
@@ -218,9 +195,7 @@ class Register extends Component {
             fullWidth
             value={this.state.name}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('name')}
           />
           <TextField
@@ -230,9 +205,7 @@ class Register extends Component {
             fullWidth
             value={this.state.account}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             disabled
           />
           <TextField
@@ -243,9 +216,7 @@ class Register extends Component {
             fullWidth
             value={this.state.email}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('email')}
           />
           <TextField
@@ -256,9 +227,7 @@ class Register extends Component {
             fullWidth
             value={this.state.contact}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('contact')}
           />
           <TextField
@@ -269,9 +238,7 @@ class Register extends Component {
             fullWidth
             value={this.state.pan}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('pan')}
           />
           <TextField
@@ -282,9 +249,7 @@ class Register extends Component {
             fullWidth
             value={this.state.occupation}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('occupation')}
           />
           <TextField
@@ -295,9 +260,7 @@ class Register extends Component {
             fullWidth
             value={this.state.address}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('address')}
           />
           <TextField
@@ -308,9 +271,7 @@ class Register extends Component {
             fullWidth
             value={this.state.state}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('state')}
           />
           <TextField
@@ -321,9 +282,7 @@ class Register extends Component {
             fullWidth
             value={this.state.city}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('city')}
           />
           <TextField
@@ -334,17 +293,12 @@ class Register extends Component {
             fullWidth
             value={this.state.postalCode}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('postalCode')}
           />
         </div>
-        <h1
-          style={{ textAlign: 'center', fontWeight: '600', marginTop: '30px' }}
-        >
-          Land Details
-        </h1>
+
+        <h1 style={{ textAlign: 'center', fontWeight: '600', marginTop: '30px' }}>Land Details</h1>
         <div className="input">
           <TextField
             id="standard-full-width"
@@ -354,9 +308,7 @@ class Register extends Component {
             fullWidth
             value={this.state.laddress}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('laddress')}
           />
           <TextField
@@ -367,9 +319,7 @@ class Register extends Component {
             fullWidth
             value={this.state.lstate}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('lstate')}
           />
           <TextField
@@ -380,9 +330,7 @@ class Register extends Component {
             fullWidth
             value={this.state.lcity}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('lcity')}
           />
           <TextField
@@ -393,9 +341,7 @@ class Register extends Component {
             fullWidth
             value={this.state.lpostalCode}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('lpostalCode')}
           />
           <TextField
@@ -406,9 +352,7 @@ class Register extends Component {
             fullWidth
             value={this.state.larea}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('larea')}
           />
           <TextField
@@ -419,43 +363,23 @@ class Register extends Component {
             fullWidth
             value={this.state.lamount}
             margin="normal"
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             onChange={this.handleChange('lamount')}
           />
-          <label for="file">Upload Legal Documents</label>
+          <label htmlFor="file">Upload Legal Documents</label>
           <br />
-          {/* { <input type="file" onChange={this.onFileChange} /> } */}
-          <form>
-            <input
-              ref="file"
-              type="file"
-              name="user[image]"
-              // multiple="true"
-              onChange={this.onChange}
-            />
-            {this.state.buffer && <iframe src={this.state.buffer}></iframe>}
-          </form>
-          <label for="file">Upload Pictures of Land/Plot</label>
+          <input ref="file" type="file" name="user[image]" onChange={this.onChange} />
+          <label htmlFor="file">Upload Pictures of Land/Plot</label>
           <br />
-          <form>
-            <input
-              ref="file"
-              type="file"
-              name="user[image]"
-              multiple="true"
-              onChange={this.fileSelectedHandler}
-            />
-          </form>
-          {this.state.images &&
-            [...this.state.images].map((file) => (
-              <img
-                src={URL.createObjectURL(file)}
-                style={{ height: '100px', width: '200px', margin: '10px' }}
-              />
-            ))}
+          <input
+            ref="file"
+            type="file"
+            name="user[image]"
+            multiple="true"
+            onChange={this.fileSelectedHandler}
+          />
         </div>
+
         <FormControlLabel
           style={{ marginTop: '20px', float: 'center' }}
           control={
@@ -473,28 +397,24 @@ class Register extends Component {
             <Button
               variant="contained"
               color="primary"
-              endIcon={<SendIcon>submit</SendIcon>}
+              endIcon={<SendIcon />}
               onClick={this.handleSubmit}
             >
               Submit
             </Button>
           ) : (
-            <Button
-              variant="contained"
-              color="primary"
-              endIcon={<SendIcon>submit</SendIcon>}
-              disabled
-
-            >
+            <Button variant="contained" color="primary" endIcon={<SendIcon />} disabled>
               Submit
             </Button>
           )}
         </div>
         <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          Already Registered?{'   '} <a href="/dashboard">Check Status</a>
+          Already Registered?{' '}
+          <a href="/dashboard">Check Status</a>
         </div>
       </Container>
-    )
+    );
   }
 }
-export default Register
+
+export default Register;

@@ -95,6 +95,19 @@ class GovtTable extends Component {
     if (flag) window.location.reload()
   }
 
+  handleReviewTransfer = async (id, email, number) => {
+    // No acceptance/rejection for land transfers, just collect stamp duty
+    const data = {
+      lemail: email,
+      subject: 'Government has reviewed your land transfer request.',
+      message: 'Your land transfer request has been reviewed. The stamp duty has been collected. Please check your account for more details.',
+      number,
+    }
+
+    await axios.post('http://localhost:3001/send_mail', data)
+    window.location.reload()
+  }
+
   handleViewImages = (images) => {
     this.setState({ open1: true, images: images || [] })
   }
@@ -130,7 +143,7 @@ class GovtTable extends Component {
 
                     return (
                       <TableCell key={column.id}>
-                        {column.id === 'isGovtApproved' && value === 'Not Approved' ? (
+                        {column.id === 'isGovtApproved' && value === 'Not Approved' && row.type === 'new_registration' ? (
                           <Grid container spacing={2}>
                             <Grid item>
                               <Button
@@ -164,6 +177,24 @@ class GovtTable extends Component {
                                 }
                               >
                                 Reject
+                              </Button>
+                            </Grid>
+                          </Grid>
+                        ) : column.id === 'isGovtApproved' && row.type === 'land_transfer' ? (
+                          <Grid container spacing={2}>
+                            <Grid item>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() =>
+                                  this.handleReviewTransfer(
+                                    row.property,
+                                    row.email,
+                                    row.contact
+                                  )
+                                }
+                              >
+                                Review and Collect Stamp Duty
                               </Button>
                             </Grid>
                           </Grid>
