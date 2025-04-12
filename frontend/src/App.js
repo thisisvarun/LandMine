@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import './App.css';
+import '../styles/App.css';
 import Web3 from 'web3';
 import {
   BrowserRouter as Router,

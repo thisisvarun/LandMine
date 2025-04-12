@@ -5,8 +5,7 @@ import { Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Checkbox from '@material-ui/core/Checkbox';
-import Land from '../abis/LandRegistry.json';
-import ipfs from '../ipfs';
+import Land from '../../abis/LandRegistry.json';
 import axios from 'axios';
 
 class Register extends Component {

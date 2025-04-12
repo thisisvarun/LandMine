@@ -1,5 +1,4 @@
 import React, { Component } from "react";
-import Typewriter from "react-typewriter-effect";
 import Web3 from 'web3';
 
 export default class Home extends Component {
@@ -85,12 +84,6 @@ export default class Home extends Component {
             <button onClick={this.handleLogout}>
               Logout {isGovtAuthenticated ? "(Govt)" : ""}
             </button>
-          </div>
-        )}
-
-        {account && (
-          <div className="account-info">
-            <p>Connected Wallet Address: {account}</p>
           </div>
         )}
       </div>

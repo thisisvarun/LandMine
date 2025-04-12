@@ -1,8 +1,7 @@
 import React, { Component } from 'react';
 import { Container, CircularProgress, Button } from '@material-ui/core';
 import Land from '../../abis/LandRegistry.json';
-import ipfs from '../ipfs';
-import Table from '../../Containers/Govt_Table';
+import Table from '../../pages/AfterLogin/Govt_Table';
 import { withStyles } from '@material-ui/core/styles';
 import Web3 from 'web3';
 import axios from 'axios';
