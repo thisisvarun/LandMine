@@ -1,5 +1,6 @@
+const User = require('../Model/User');
 router.post('/signup', async (req, res) => {
-  const { email, name, contact, privateKey, city, postalCode, password } = req.body;
+  const { email, name, password } = req.body;
   try {
     console.log('Signup attempt with email:', email);
 
@@ -13,10 +14,6 @@ router.post('/signup', async (req, res) => {
     const newUser = new User({
       email,
       name,
-      contact,
-      privateKey,
-      city,
-      postalCode,
       password,
     });
 

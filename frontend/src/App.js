@@ -6,15 +6,17 @@ import {
   Switch,
   Route,
 } from 'react-router-dom';
-import Register from './Components/Register';
+import Register from './Components/Signup';
 import Dashboard from './Components/Dashboard';
 import Header from './Containers/Header';
-import RegistrationForm from './Containers/RegistrationForm';
+import RegistrationForm from './Containers/AddNewLand';
 import Dashboard_Govt from './Components/Dashboard_Govt';
 import Profile from './Components/Profile';
 import Help from './Components/Help';
 import Home from './Components/Home';
-import CombinedLogin from './Components/CombinedLogin';
+import CombinedLogin from './Components/Login';
+import Login from './Components/Login';
+import Signup from './Components/Signup';
 
 class App extends Component {
   constructor(props) {
@@ -65,8 +67,8 @@ class App extends Component {
           <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
           <Switch>
             <Route exact path="/" component={Home} />
-            <Route exact path="/signup" component={Register} />
-            <Route exact path="/login" component={CombinedLogin} />
+            <Route exact path="/signup" component={Signup} />
+            <Route exact path="/login" component={Login} />
             <Route exact path="/dashboard" component={Dashboard} />
             <Route exact path="/dashboard_govt" component={Dashboard_Govt} />
             <Route exact path="/profile" component={Profile} />

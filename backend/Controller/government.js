@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Govt = require('../Model/Government_Registrar');
+const Govt = require('../Model/Government');
 
 router.get('/gov', async (req, res) => {
   try {

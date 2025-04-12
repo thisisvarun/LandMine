@@ -40,10 +40,7 @@ class Help extends Component {
                 You have to provide the following details to the form:-
                 <li>Name</li>
                 <li>Email Address</li>
-                <li>Contact Number</li>
-                <li>Private Key (Account Address)</li>
-                <li>City</li>
-                <li>Postal Code</li>
+                <li>Password</li>
                 Click on the submit button and you will be redirected to login
                 page. To login, you have to provide your private key and click
                 on the login button.

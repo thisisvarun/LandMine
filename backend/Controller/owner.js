@@ -6,7 +6,7 @@ const Owner = require('../Model/Owners');
 router.post('/owner', async (req, res) => {
   try {
     let result = new Owner({
-      ownerName: req.body.name,
+      ownerName: req.body.ownerName, // Updated for consistency
       ownerEmailId: req.body.email,
       ownerContactNumber: req.body.contact,
       panNumber: req.body.pan,
