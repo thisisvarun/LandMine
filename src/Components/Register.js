@@ -71,7 +71,7 @@ class Register extends Component {
     try {
       const generatedAddress = this.generateAddress();
 
-      const response = await axios.post('http://localhost:4000/signup', {
+      const response = await axios.post('http://localhost:3000/signup', {
         username,  // Send the username as part of the request
         email,
         password,

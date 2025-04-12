@@ -1,16 +1,24 @@
-var mongoose = require('mongoose');
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
-var userSchema = mongoose.Schema({
-  name: { type: String, required: true },
-  email: {
-    type: String,
-    required: true,
-    match: /^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/,
-  },
-  contact: { type: String, required: true },
-  privateKey: { type: String, required: true },
-  city: { type: String, required: true },
-  postalCode: { type: String, required: true },
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  email:    { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  accountAddress: { type: String, required: true },
 });
 
-module.exports = mongoose.model('User', userSchema);  // Updated collection name
+// Hash password before saving
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Compare password
+userSchema.methods.comparePassword = function (inputPassword) {
+  return bcrypt.compare(inputPassword, this.password);
+};
+
+module.exports = mongoose.model('User', userSchema);
