@@ -3,6 +3,7 @@ import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
 import { Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
+import FileCopyIcon from '@material-ui/icons/FileCopy';
 import axios from 'axios';
 import Web3 from 'web3';
 import Land from '../abis/LandRegistry.json';
@@ -32,39 +33,33 @@ class Register extends Component {
     this.state = {
       name: '',
       email: '',
-      accountAddress: '',
-      postalCode: '',
-      city: '',
       contact: '',
+      city: '',
+      postalCode: '',
+      generatedAddress: '',
       account: '',
       web3: null,
       landList: null,
-      signature: '',
       errorMessage: '',
+      successMessage: '',
     };
   }
 
   componentDidMount = async () => {
-    if (window.ethereum) {
-      const web3 = new Web3(window.ethereum);
-      await window.ethereum.enable();  // Ensure Trust Wallet is connected
-      const accounts = await web3.eth.getAccounts();
-      const networkId = await web3.eth.net.getId();
-      const deployedNetwork = Land.networks[networkId];
+    const web3 = new Web3(Web3.givenProvider || 'http://localhost:8545');
+    const accounts = await web3.eth.getAccounts();
+    const networkId = await web3.eth.net.getId();
+    const deployedNetwork = Land.networks[networkId];
 
-      if (deployedNetwork) {
-        const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
-        this.setState({
-          web3,
-          landList,
-          account: accounts[0],
-          accountAddress: accounts[0],  // Setting the Ethereum address
-        });
-      } else {
-        alert('Smart contract not deployed on detected network.');
-      }
+    if (deployedNetwork) {
+      const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
+      this.setState({
+        web3,
+        landList,
+        account: accounts[0] || '',
+      });
     } else {
-      alert('Please install Trust Wallet or MetaMask.');
+      alert('Smart contract not deployed on detected network.');
     }
 
     if (window.localStorage.getItem('authenticated') === 'true') {
@@ -73,7 +68,7 @@ class Register extends Component {
   };
 
   handleChange = (field) => (e) => {
-    this.setState({ [field]: e.target.value, errorMessage: '' });
+    this.setState({ [field]: e.target.value, errorMessage: '', successMessage: '' });
   };
 
   validateEmail = (email) => {
@@ -81,10 +76,21 @@ class Register extends Component {
     return re.test(String(email).toLowerCase());
   };
 
-  handleSubmit = async () => {
-    const { name, email, contact, accountAddress, city, postalCode } = this.state;
+  generateAddress = () => {
+    const newAccount = this.state.web3.eth.accounts.create();
+    this.setState({ generatedAddress: newAccount.address });
+    return newAccount.address;
+  };
 
-    if (!name || !email || !contact || !accountAddress || !city || !postalCode) {
+  copyAddress = () => {
+    navigator.clipboard.writeText(this.state.generatedAddress);
+    alert('Address copied to clipboard!');
+  };
+
+  handleSubmit = async () => {
+    const { name, email, contact, city, postalCode } = this.state;
+
+    if (!name || !email || !contact || !city || !postalCode) {
       return this.setState({ errorMessage: 'All fields are required.' });
     }
 
@@ -93,60 +99,57 @@ class Register extends Component {
     }
 
     try {
-      // Send the user details to backend for registration
+      const generatedAddress = this.generateAddress();
+
       const response = await axios.post('http://localhost:4000/signup', {
         name,
         email,
         contact,
-        accountAddress,
+        accountAddress: generatedAddress,
         city,
         postalCode,
       });
 
       if (response.data.success) {
-        this.registerOnBlockchain();
+        await this.state.landList.methods
+          .addUser(generatedAddress, name, contact, email, postalCode, city)
+          .send({ from: this.state.account, gas: 1000000 });
+
+        this.setState({ successMessage: 'Registration successful!' });
       } else {
         this.setState({ errorMessage: response.data.message || 'Signup failed.' });
       }
     } catch (err) {
       console.error('Signup error:', err);
-      this.setState({ errorMessage: 'Server error during signup.' });
-    }
-  };
-
-  registerOnBlockchain = async () => {
-    const { landList, account, name, email, contact, city, postalCode, accountAddress } = this.state;
-
-    try {
-      // User signs a message with their wallet
-      const message = `Sign this message to register: ${name}`;
-      const signature = await this.state.web3.eth.personal.sign(message, account, '');
-
-      // Save the signature in the state for verification
-      this.setState({ signature });
-
-      // Now, proceed to register the user on the blockchain
-      await landList.methods
-        .addUser(accountAddress, name, contact, email, postalCode, city)
-        .send({ from: account, gas: 1000000 });
-
-      alert('Registration successful!');
-      window.location = '/login';
-    } catch (error) {
-      console.error('Blockchain error:', error);
-      alert('Blockchain registration failed.');
+      this.setState({ errorMessage: 'Server or blockchain error during signup.' });
     }
   };
 
   render() {
     const { classes } = this.props;
-    const { name, email, contact, accountAddress, city, postalCode, errorMessage } = this.state;
+    const {
+      name, email, contact, city, postalCode,
+      generatedAddress, errorMessage, successMessage
+    } = this.state;
 
     return (
       <div className="profile-bg">
         <Container style={{ marginTop: '40px' }} className={classes.root}>
           <div className="register-text">Register Here</div>
           {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
+          {successMessage && (
+            <div className="alert alert-success">
+              {successMessage}
+              {generatedAddress && (
+                <div style={{ marginTop: '10px', wordBreak: 'break-word' }}>
+                  Your Address: {generatedAddress}
+                  <Button onClick={this.copyAddress} size="small" startIcon={<FileCopyIcon />} style={{ marginLeft: '10px', color: '#fff' }}>
+                    Copy
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="input">
             <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
             <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />

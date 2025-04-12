@@ -26,18 +26,9 @@ class App extends Component {
   }
 
   async componentDidMount() {
-    this.updateAuthState();
     await this.loadWeb3();
     await this.loadBlockchainData();
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.authenticated !== this.state.authenticated ||
-      prevState.govtAuthenticated !== this.state.govtAuthenticated
-    ) {
-      this.updateAuthState();
-    }
+    this.updateAuthState();
   }
 
   updateAuthState = () => {
@@ -49,7 +40,9 @@ class App extends Component {
   async loadBlockchainData() {
     const web3 = window.web3;
     const accounts = await web3.eth.getAccounts();
-    window.localStorage.setItem('web3account', accounts[0]);
+    if (accounts.length > 0) {
+      window.localStorage.setItem('web3account', accounts[0]);
+    }
   }
 
   async loadWeb3() {
@@ -64,18 +57,20 @@ class App extends Component {
   }
 
   render() {
+    const { authenticated, govtAuthenticated } = this.state;
+
     return (
       <Router>
         <div className="App">
-          <Header authenticated={this.state.authenticated} govtAuthenticated={this.state.govtAuthenticated} />
+          <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
           <Switch>
-            <Route exact path="/" render={() => <Home authenticated={this.state.authenticated} govtAuthenticated={this.state.govtAuthenticated} />} />
+            <Route exact path="/" component={Home} />
             <Route exact path="/signup" component={Register} />
-            <Route exact path="/dashboard" component={Dashboard} />
             <Route exact path="/login" component={CombinedLogin} />
+            <Route exact path="/dashboard" component={Dashboard} />
+            <Route exact path="/dashboard_govt" component={Dashboard_Govt} />
             <Route exact path="/profile" component={Profile} />
             <Route exact path="/registration_form" component={RegistrationForm} />
-            <Route exact path="/dashboard_govt" component={Dashboard_Govt} />
             <Route exact path="/guide" component={Help} />
           </Switch>
         </div>

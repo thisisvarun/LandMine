@@ -6,6 +6,40 @@ const styles = (theme) => ({
   grow: {
     flexGrow: 1,
   },
+  topBar: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    padding: '10px 20px',
+    background: '#222',
+  },
+  connectBtn: {
+    background: '#328888',
+    color: '#fff',
+    padding: '6px 12px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontFamily: "'Roboto Condensed', sans-serif",
+  },
+  navWrap: {
+    background: '#111',
+    padding: '10px 0',
+  },
+  navList: {
+    display: 'flex',
+    justifyContent: 'center',
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+  },
+  navItem: {
+    margin: '0 15px',
+  },
+  navLink: {
+    color: '#fff',
+    textDecoration: 'none',
+    fontFamily: "'Roboto Condensed', sans-serif",
+  },
 });
 
 class Header extends Component {
@@ -24,10 +58,8 @@ class Header extends Component {
 
     this.setState({ authenticated: auth, isGovt: govt });
 
-    // Check if Trust Wallet (or MetaMask) is installed
     if (window.ethereum) {
       try {
-        // Try to get the account and listen for account change events
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           this.setState({ account: accounts[0] });
@@ -36,13 +68,8 @@ class Header extends Component {
         console.error("Error getting Trust Wallet account:", error);
       }
 
-      // Listen for account change (if using Trust Wallet or MetaMask)
       window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length > 0) {
-          this.setState({ account: accounts[0] });
-        } else {
-          this.setState({ account: null });
-        }
+        this.setState({ account: accounts[0] || null });
       });
     }
   };
@@ -50,10 +77,7 @@ class Header extends Component {
   connectTrustWallet = async () => {
     if (window.ethereum) {
       try {
-        // Request account access if Trust Wallet is available
-        const accounts = await window.ethereum.request({
-          method: 'eth_requestAccounts',
-        });
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         this.setState({ account: accounts[0] });
         window.localStorage.setItem('web3account', accounts[0]);
         window.localStorage.setItem('authenticated', 'true');
@@ -67,30 +91,39 @@ class Header extends Component {
 
   render() {
     const { classes } = this.props;
+    const { authenticated, isGovt } = this.state;
 
     return (
       <div className={classes.grow}>
-        <header id="header">
-          <nav id="nav-wrap">
-            <ul id="nav" className="nav">
-              <li><a href="/">Home</a></li>
+        {/* Top right connect button */}
+        {!authenticated && !isGovt && (
+          <div className={classes.topBar}>
+            <button className={classes.connectBtn} onClick={this.connectTrustWallet}>
+              Connect with Trust Wallet
+            </button>
+          </div>
+        )}
 
-              {/* Display login and signup only if no user is authenticated */}
-              {!this.state.authenticated && !this.state.isGovt && (
+        <header className={classes.navWrap}>
+          <nav>
+            <ul className={classes.navList}>
+              <li className={classes.navItem}><a href="/" className={classes.navLink}>Home</a></li>
+
+              {!authenticated && !isGovt && (
                 <>
-                  <li><Link to="/login">Login</Link></li>
-                  <li><Link to="/signup">Sign Up</Link></li>
+                  <li className={classes.navItem}><Link to="/login" className={classes.navLink}>Login</Link></li>
+                  <li className={classes.navItem}><Link to="/signup" className={classes.navLink}>Sign Up</Link></li>
                 </>
               )}
 
-              {/* Display user-specific options if authenticated */}
-              {this.state.authenticated && !this.state.isGovt && (
+              {authenticated && !isGovt && (
                 <>
-                  <li><Link to="/dashboard">Dashboard</Link></li>
-                  <li><Link to="/profile">Profile</Link></li>
-                  <li>
+                  <li className={classes.navItem}><Link to="/dashboard" className={classes.navLink}>Dashboard</Link></li>
+                  <li className={classes.navItem}><Link to="/profile" className={classes.navLink}>Profile</Link></li>
+                  <li className={classes.navItem}>
                     <Link
                       to="/login"
+                      className={classes.navLink}
                       onClick={() => {
                         window.localStorage.setItem('authenticated', 'false');
                         window.localStorage.removeItem('web3account');
@@ -102,13 +135,13 @@ class Header extends Component {
                 </>
               )}
 
-              {/* Display govt-specific options if govt user is logged in */}
-              {this.state.isGovt && (
+              {isGovt && (
                 <>
-                  <li><Link to="/dashboard_govt">Govt Dashboard</Link></li>
-                  <li>
+                  <li className={classes.navItem}><Link to="/dashboard_govt" className={classes.navLink}>Govt Dashboard</Link></li>
+                  <li className={classes.navItem}>
                     <Link
                       to="/govt_login"
+                      className={classes.navLink}
                       onClick={() => {
                         window.localStorage.setItem('govtAuthenticated', 'false');
                         window.localStorage.removeItem('web3account');
@@ -120,15 +153,7 @@ class Header extends Component {
                 </>
               )}
 
-              {/* Connect to Trust Wallet if the user is not authenticated */}
-              {!this.state.authenticated && !this.state.isGovt && (
-                <li>
-                  <button onClick={this.connectTrustWallet}>Connect with Trust Wallet</button>
-                </li>
-              )}
-
-              {/* Common FAQ link */}
-              <li><Link to="/guide">FAQ</Link></li>
+              <li className={classes.navItem}><Link to="/guide" className={classes.navLink}>FAQ</Link></li>
             </ul>
           </nav>
         </header>
