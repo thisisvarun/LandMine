@@ -1,13 +1,10 @@
 import React, { Component } from 'react';
-import TextField from '@material-ui/core/TextField';
-import Button from '@material-ui/core/Button';
-import { Container } from '@material-ui/core';
+import { TextField, Button, Container } from '@material-ui/core';
 import SendIcon from '@material-ui/icons/Send';
 import FileCopyIcon from '@material-ui/icons/FileCopy';
-import axios from 'axios';
-import Web3 from 'web3';
-import Land from '../abis/LandRegistry.json';
 import { withStyles } from '@material-ui/core/styles';
+import Web3 from 'web3';
+import axios from 'axios';
 
 const styles = () => ({
   root: {
@@ -31,15 +28,12 @@ class Register extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      name: '',
+      username: '',
       email: '',
-      contact: '',
-      city: '',
-      postalCode: '',
+      password: '',
       generatedAddress: '',
       account: '',
       web3: null,
-      landList: null,
       errorMessage: '',
       successMessage: '',
     };
@@ -49,31 +43,11 @@ class Register extends Component {
     const web3 = new Web3(Web3.givenProvider || 'http://localhost:8545');
     const accounts = await web3.eth.getAccounts();
     const networkId = await web3.eth.net.getId();
-    const deployedNetwork = Land.networks[networkId];
-
-    if (deployedNetwork) {
-      const landList = new web3.eth.Contract(Land.abi, deployedNetwork.address);
-      this.setState({
-        web3,
-        landList,
-        account: accounts[0] || '',
-      });
-    } else {
-      alert('Smart contract not deployed on detected network.');
-    }
-
-    if (window.localStorage.getItem('authenticated') === 'true') {
-      window.location = '/dashboard';
-    }
+    this.setState({ web3, account: accounts[0] || '' });
   };
 
   handleChange = (field) => (e) => {
     this.setState({ [field]: e.target.value, errorMessage: '', successMessage: '' });
-  };
-
-  validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(String(email).toLowerCase());
   };
 
   generateAddress = () => {
@@ -88,49 +62,38 @@ class Register extends Component {
   };
 
   handleSubmit = async () => {
-    const { name, email, contact, city, postalCode } = this.state;
+    const { username, email, password } = this.state;
 
-    if (!name || !email || !contact || !city || !postalCode) {
-      return this.setState({ errorMessage: 'All fields are required.' });
-    }
-
-    if (!this.validateEmail(email)) {
-      return this.setState({ errorMessage: 'Invalid email address.' });
+    if (!username || !email || !password) {
+      return this.setState({ errorMessage: 'Username, Email, and Password are required.' });
     }
 
     try {
       const generatedAddress = this.generateAddress();
 
       const response = await axios.post('http://localhost:4000/signup', {
-        name,
+        username,  // Send the username as part of the request
         email,
-        contact,
+        password,
         accountAddress: generatedAddress,
-        city,
-        postalCode,
       });
 
       if (response.data.success) {
-        await this.state.landList.methods
-          .addUser(generatedAddress, name, contact, email, postalCode, city)
-          .send({ from: this.state.account, gas: 1000000 });
-
         this.setState({ successMessage: 'Registration successful!' });
+        // Optionally, store address and credentials locally or in a session
+        window.localStorage.setItem('userAddress', generatedAddress);
       } else {
         this.setState({ errorMessage: response.data.message || 'Signup failed.' });
       }
     } catch (err) {
       console.error('Signup error:', err);
-      this.setState({ errorMessage: 'Server or blockchain error during signup.' });
+      this.setState({ errorMessage: 'Server error during signup.' });
     }
   };
 
   render() {
     const { classes } = this.props;
-    const {
-      name, email, contact, city, postalCode,
-      generatedAddress, errorMessage, successMessage
-    } = this.state;
+    const { username, email, password, generatedAddress, errorMessage, successMessage } = this.state;
 
     return (
       <div className="profile-bg">
@@ -151,11 +114,28 @@ class Register extends Component {
             </div>
           )}
           <div className="input">
-            <TextField label="Name" fullWidth margin="normal" value={name} onChange={this.handleChange('name')} />
-            <TextField label="Email Address" fullWidth margin="normal" value={email} onChange={this.handleChange('email')} />
-            <TextField label="Contact Number" fullWidth margin="normal" value={contact} onChange={this.handleChange('contact')} />
-            <TextField label="City" fullWidth margin="normal" value={city} onChange={this.handleChange('city')} />
-            <TextField label="Postal Code" fullWidth margin="normal" value={postalCode} onChange={this.handleChange('postalCode')} />
+            <TextField
+              label="Username"
+              fullWidth
+              margin="normal"
+              value={username}
+              onChange={this.handleChange('username')}
+            />
+            <TextField
+              label="Email Address"
+              fullWidth
+              margin="normal"
+              value={email}
+              onChange={this.handleChange('email')}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              fullWidth
+              margin="normal"
+              value={password}
+              onChange={this.handleChange('password')}
+            />
           </div>
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <Button variant="contained" color="primary" endIcon={<SendIcon />} onClick={this.handleSubmit}>

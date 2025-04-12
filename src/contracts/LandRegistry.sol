@@ -29,6 +29,8 @@ contract LandRegistry {
         string isAvailable;
         address requester;
         reqStatus requestStatus;
+        string doc1Hash;
+        string doc2Hash;
     }
 
     address[] userarr;
@@ -69,6 +71,11 @@ contract LandRegistry {
         return true;
     }
 
+    function getFullLandDetails(uint256 id) public view returns (LandDetails memory) {
+        return land[id];
+    }
+
+
     function getUser(address uid)
         public
         view
@@ -95,15 +102,17 @@ contract LandRegistry {
     }
 
     function Registration(
-        address payable _id,
-        string memory _ipfsHash,
-        string memory _laddress,
-        uint256 _lamount,
-        uint256 _key,
-        string memory status,
-        string memory _isAvailable
+    address payable _id,
+    string memory _ipfsHash,
+    string memory _laddress,
+    uint256 _lamount,
+    uint256 _key,
+    string memory status,
+    string memory _isAvailable,
+    string memory _doc1Hash,
+    string memory _doc2Hash
     ) public returns (bool) {
-        land[_key] = landDetails(
+        land[_key] = LandDetails(
             _id,
             _ipfsHash,
             _laddress,
@@ -112,12 +121,16 @@ contract LandRegistry {
             status,
             _isAvailable,
             address(0),
-            reqStatus.Default
+            reqStatus.Default,
+            _doc1Hash,
+            _doc2Hash
         );
-        profile[_id].assetList.push(_key);
+        userAssets[_id].push(_key);
         assets.push(_key);
+        emit LandRegistered(_key, _id);
         return true;
     }
+
 
     function computeId(string memory _laddress, string memory _lamount)
         public
