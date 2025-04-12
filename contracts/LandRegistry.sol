@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.25;
 
 // ✅ Updated government wallet address
 address payable constant govtAddress = payable(0x4335BdD13cB56abf4542b841a0e7ca9fb7f4CBFc);
@@ -19,6 +19,8 @@ contract LandRegistry {
         string city;
         bool exist;
     }
+    
+    // Use 'landDetails' instead of 'LandDetails' to match the function return type
     struct landDetails {
         address payable id;
         string ipfsHash;
@@ -37,6 +39,12 @@ contract LandRegistry {
     uint256[] assets;
     address owner;
     enum reqStatus {Default, Pending, Rejected, Approved}
+
+    // Declare the mapping for userAssets
+    mapping(address => uint256[]) public userAssets;
+
+    // Declare the event for LandRegistered
+    event LandRegistered(uint256 key, address owner);
 
     constructor() {
         owner = msg.sender;
@@ -71,10 +79,10 @@ contract LandRegistry {
         return true;
     }
 
-    function getFullLandDetails(uint256 id) public view returns (LandDetails memory) {
+    // Corrected return type to 'landDetails'
+    function getFullLandDetails(uint256 id) public view returns (landDetails memory) {
         return land[id];
     }
-
 
     function getUser(address uid)
         public
@@ -112,7 +120,7 @@ contract LandRegistry {
     string memory _doc1Hash,
     string memory _doc2Hash
     ) public returns (bool) {
-        land[_key] = LandDetails(
+        land[_key] = landDetails(
             _id,
             _ipfsHash,
             _laddress,
@@ -125,12 +133,15 @@ contract LandRegistry {
             _doc1Hash,
             _doc2Hash
         );
+        // Store the asset under the user's address
         userAssets[_id].push(_key);
         assets.push(_key);
+        
+        // Emit the LandRegistered event
         emit LandRegistered(_key, _id);
+        
         return true;
     }
-
 
     function computeId(string memory _laddress, string memory _lamount)
         public
