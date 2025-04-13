@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { TextField, Button, Container } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import FileCopyIcon from '@mui/icons-material/FileCopy';
-import { styled } from '@mui/system';
+import { useNavigate } from 'react-router-dom';
 import Web3 from 'web3';
 import axios from 'axios';
-import { useHistory } from 'react-router-dom';
-
 
 const styles = {
   root: {
@@ -35,7 +33,7 @@ const Register = () => {
   const [web3, setWeb3] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const history = useHistory();
+  const navigate = useNavigate(); // Using useNavigate for navigation
 
   useEffect(() => {
     const initializeWeb3 = async () => {
@@ -77,7 +75,7 @@ const Register = () => {
       if (response.data.success) {
         setSuccessMessage('Registration successful!');
         window.localStorage.setItem('userAddress', generatedAddress);
-        history.push('/login'); // Redirect to login after successful registration
+        navigate('/login'); // Using navigate for redirection
       } else {
         setErrorMessage(response.data.message || 'Signup failed.');
       }

@@ -6,7 +6,7 @@ const Home = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGovtAuthenticated, setIsGovtAuthenticated] = useState(false);
   const [account, setAccount] = useState('');
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Using useNavigate for routing
 
   useEffect(() => {
     checkAuthentication();
@@ -49,7 +49,7 @@ const Home = () => {
   return (
     <div className="bg">
       <div className="home-text">
-        Secure Land<br></br>Registration
+        Secure Land<br />Registration
         <br /> Application
 
         <hr

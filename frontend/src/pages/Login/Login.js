@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { TextField, Button, Container } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import { styled } from '@mui/system';
-import { useHistory } from 'react-router-dom';
-import { create } from 'ipfs-http-client';
-
+import { useNavigate } from 'react-router-dom';
 
 const styles = {
   root: {
@@ -30,7 +27,7 @@ const CombinedLogin = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const history = useHistory();
+  const navigate = useNavigate(); // Using useNavigate for navigation
 
   const handleLoginTypeChange = (event) => {
     setIsGovtLogin(event.target.value === 'govt');
@@ -60,11 +57,11 @@ const CombinedLogin = () => {
       if (data.success) {
         if (data.role === 'government') {
           localStorage.setItem('govtAuthenticated', 'true');
-          history.push('/dashboard_govt');
+          navigate('/dashboard_govt'); // Using navigate instead of history.push
         } else {
           localStorage.setItem('authenticated', 'true');
           localStorage.setItem('userEmail', data.email);
-          history.push('/dashboard');
+          navigate('/dashboard'); // Using navigate instead of history.push
         }
       } else {
         setError(data.message);

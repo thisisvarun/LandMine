@@ -10,7 +10,8 @@ import Profile from './components/Profile/Profile';
 import Help from './components/Help/Help';
 import Home from './components/common/Home';
 import Login from './pages/Login/Login';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { Routes, Route} from 'react-router-dom';
+
 
 const App = () => {
   const [authenticated, setAuthenticated] = useState(false);
@@ -49,7 +50,7 @@ const App = () => {
   }, []);
 
   return (
-    <Router>
+    <Routes>
       <div className="App">
         <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
         <Switch>
@@ -63,7 +64,7 @@ const App = () => {
           <Route exact path="/guide" component={Help} />
         </Switch>
       </div>
-    </Router>
+    </Routes>
   );
 };
 
