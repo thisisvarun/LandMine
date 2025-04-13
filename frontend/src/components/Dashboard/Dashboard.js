@@ -8,6 +8,8 @@ import AvailableTable from '../../pages/AfterLogin/Buyer_Table'
 import RegistrationForm from '../../pages/AfterLogin/AddNewLand'
 import axios from 'axios'
 import Web3 from 'web3'
+import { create } from 'ipfs-http-client';
+
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props

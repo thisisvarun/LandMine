@@ -3,6 +3,8 @@ import { TextField, Button, Container } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { styled } from '@mui/system';
 import { useHistory } from 'react-router-dom';
+import { create } from 'ipfs-http-client';
+
 
 const styles = {
   root: {

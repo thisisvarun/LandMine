@@ -10,6 +10,7 @@
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@testing-library/user-event": "latest",
+    "axios": "^1.8.4",
     "bootstrap": "latest",
     "dotenv": "latest",
     "ipfs-http-client": "latest",
