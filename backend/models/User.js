@@ -47,20 +47,13 @@ const userSchema = new mongoose.Schema({
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Method to compare passwords
+// Password comparison method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
-};
-
-// Remove sensitive data when converting to JSON
-userSchema.methods.toJSON = function() {
-  const obj = this.toObject();
-  delete obj.password;
-  return obj;
 };
 
 module.exports = mongoose.model('User', userSchema);

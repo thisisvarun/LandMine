@@ -9,7 +9,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Public routes
-router.post('/register', register);
+router.post('/signup', register);
 router.post('/login', login);
 
 // Protected test route (example)

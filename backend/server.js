@@ -15,13 +15,17 @@ const Government = require('./models/Government');
 const app = express();
 const PORT = process.env.SERVER_PORT || 5000;
 const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes); 
+
 // Security Middleware
 app.use(helmet());
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*'
 }));
 app.use(bodyParser.json({ limit: '10kb' }));
+app.use(express.json());
+
+//Routes
+app.use('/api/auth', authRoutes);
 
 // Rate limiting
 const limiter = rateLimit({

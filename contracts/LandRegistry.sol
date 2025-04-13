@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.28;
 
 contract LandRegistry {
     address payable public govtAddress;
@@ -51,10 +51,6 @@ contract LandRegistry {
     modifier restricted() {
         require(msg.sender == owner, "Not authorized");
         _;
-    }
-
-    constructor() {
-        owner = msg.sender;
     }
 
     function addUser(

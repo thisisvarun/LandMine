@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { 
   TextField, 
   Button, 
@@ -8,7 +8,6 @@ import {
   Box
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Web3Context } from '../../providers/Web3Provider';
 import { toast } from 'react-toastify';
 import './Signup.css';
 
@@ -18,42 +17,47 @@ const Signup = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    privateKey: '' // For development only
+    privateKey: '' // For manual Hardhat private key input
   });
   const [loading, setLoading] = useState(false);
-  const { initializeWithPrivateKey } = useContext(Web3Context);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
-      // Initialize web3 with the provided private key (dev only)
-      if (formData.privateKey) {
-        await initializeWithPrivateKey(formData.privateKey);
-      }
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/signup`, {
+      const response = await fetch(`http://localhost:5000/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          // In production, you would send walletAddress instead
-          privateKey: formData.privateKey // ONLY FOR DEVELOPMENT
+          privateKey: formData.privateKey
         })
       });
-
+  
+      // First check the response status
+      if (!response.ok) {
+        const text = await response.text(); // Get raw response first
+        console.error('Raw error response:', text);
+        try {
+          // Try to parse as JSON
+          const json = JSON.parse(text);
+          throw new Error(json.message || 'Signup failed');
+        } catch {
+          // If not JSON, use raw text
+          throw new Error(text || 'Signup failed');
+        }
+      }
+  
       const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || 'Signup failed');
-
       toast.success('Account created successfully!');
       navigate('/login');
     } catch (err) {
       toast.error(err.message);
+      console.error('Full error:', err);
     } finally {
       setLoading(false);
     }
@@ -63,21 +67,20 @@ const Signup = () => {
     <div className="signup-container">
       <Container maxWidth="sm" className="signup-form">
         <Typography variant="h4" gutterBottom>
-          Create Account
+          Demo Registration
         </Typography>
 
         <Alert severity="warning" sx={{ mb: 3 }}>
-          <strong>Development Mode:</strong> Using Hardhat test accounts. 
-          Never enter real private keys in development.
+          <strong>Development Only:</strong> Paste Hardhat private keys from your test environment.
+          Never use real private keys!
         </Alert>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+        <Box component="form" onSubmit={handleSubmit}>
           <TextField
             margin="normal"
             required
             fullWidth
             label="Username"
-            name="username"
             value={formData.username}
             onChange={(e) => setFormData({...formData, username: e.target.value})}
           />
@@ -87,7 +90,6 @@ const Signup = () => {
             required
             fullWidth
             label="Email"
-            name="email"
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -97,7 +99,6 @@ const Signup = () => {
             margin="normal"
             required
             fullWidth
-            name="password"
             label="Password"
             type="password"
             value={formData.password}
@@ -108,7 +109,6 @@ const Signup = () => {
             margin="normal"
             required
             fullWidth
-            name="confirmPassword"
             label="Confirm Password"
             type="password"
             value={formData.confirmPassword}
@@ -117,23 +117,34 @@ const Signup = () => {
 
           <TextField
             margin="normal"
+            required
             fullWidth
-            name="privateKey"
-            label="Hardhat Private Key (Dev Only)"
+            label="Hardhat Private Key"
             value={formData.privateKey}
             onChange={(e) => setFormData({...formData, privateKey: e.target.value})}
-            helperText="Only for development with Hardhat test accounts"
+            placeholder="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            helperText="Paste from your Hardhat console output"
           />
 
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ mt: 3 }}
             disabled={loading}
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating Demo Account...' : 'Register'}
           </Button>
+        </Box>
+
+        <Box mt={2}>
+          <Typography variant="body2" color="text.secondary">
+            <strong>Hardhat Test Keys Example:</strong>
+          </Typography>
+          <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace' }}>
+            <div>Account #0: 0xac0974...f2ff80</div>
+            <div>Account #1: 0x59c699...8690d</div>
+          </Typography>
         </Box>
       </Container>
     </div>
