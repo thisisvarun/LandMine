@@ -1,12 +1,18 @@
 const express = require('express');
-const { login, register } = require('../middleware/authController');
+const { 
+  login,
+  register,
+  validateToken
+} = require('../controllers/authController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Route for user registration
+// Public routes
 router.post('/register', register);
-
-// Route for user login
 router.post('/login', login);
+
+// Protected test route (example)
+router.get('/validate', authMiddleware, validateToken);
 
 module.exports = router;

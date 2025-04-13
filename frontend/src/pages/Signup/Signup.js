@@ -1,154 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { TextField, Button, Container } from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
-import FileCopyIcon from '@mui/icons-material/FileCopy';
+import React, { useState, useContext } from 'react';
+import { 
+  TextField, 
+  Button, 
+  Container, 
+  Typography,
+  Alert,
+  Box
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import Web3 from 'web3';
-import axios from 'axios';
+import { Web3Context } from '../../providers/Web3Provider';
+import { toast } from 'react-toastify';
+import './Signup.css';
 
-const styles = {
-  root: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%,-50%)',
-    '& .MuiFormLabel-root': { color: '#fff' },
-    '& .MuiInputBase-root': { color: '#fff' },
-    '& .MuiInput-underline:before': { borderBottomColor: '#fff' },
-    '& .MuiInput-underline:after': { borderBottomColor: '#fff' },
-    '& .MuiInput-underline:hover': { borderBottomColor: '#fff' },
-    '& .MuiButton-containedPrimary': {
-      backgroundColor: '#328888',
-      fontFamily: "'Roboto Condensed', sans-serif",
-    },
-  },
-};
+const Signup = () => {
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    privateKey: '' // For development only
+  });
+  const [loading, setLoading] = useState(false);
+  const { initializeWithPrivateKey } = useContext(Web3Context);
+  const navigate = useNavigate();
 
-const Register = () => {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [privateKey, setPrivateKey] = useState('');
-  const [account, setAccount] = useState('');
-  const [web3, setWeb3] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const navigate = useNavigate(); // Using useNavigate for navigation
-
-  useEffect(() => {
-    const initializeWeb3 = async () => {
-      const web3Instance = new Web3(Web3.givenProvider || process.env.QUICKNODE_RPC);
-      const accounts = await web3Instance.eth.getAccounts();
-      setWeb3(web3Instance);
-      setAccount(accounts[0] || '');
-    };
-
-    initializeWeb3();
-  }, []);
-
-  const generatePrivateKey = () => {
-    const newAccount = web3.eth.accounts.create();
-    setPrivateKey(newAccount.privateKey);
-    return newAccount.privateKey;
-  };
-
-  const copyPrivateKey = () => {
-    navigator.clipboard.writeText(privateKey);
-    alert('Private key copied to clipboard!');
-  };
-
-  const handleSubmit = async () => {
-    if (!username || !email || !password) {
-      return setErrorMessage('Username, Email, and Password are required.');
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const generatedPrivateKey = generatePrivateKey();
+      // Initialize web3 with the provided private key (dev only)
+      if (formData.privateKey) {
+        await initializeWithPrivateKey(formData.privateKey);
+      }
 
-      // Sending only private key to the backend
-      const response = await axios.post('http://localhost:5000/signup', {
-        username,
-        email,
-        password,
-        privateKey: generatedPrivateKey, // Only sending private key here
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          // In production, you would send walletAddress instead
+          privateKey: formData.privateKey // ONLY FOR DEVELOPMENT
+        })
       });
 
-      if (response.data.success) {
-        setSuccessMessage('Registration successful!');
-        window.localStorage.setItem('privateKey', generatedPrivateKey);
-        navigate('/login'); // Using navigate for redirection
-      } else {
-        setErrorMessage(response.data.message || 'Signup failed.');
-      }
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message || 'Signup failed');
+
+      toast.success('Account created successfully!');
+      navigate('/login');
     } catch (err) {
-      console.error('Signup error:', err);
-      setErrorMessage('Server error during signup.');
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="profile-bg">
-      <Container style={{ marginTop: '40px' }} sx={styles.root}>
-        <div className="register-text">Register Here</div>
-        {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
-        {successMessage && (
-          <div className="alert alert-success">
-            {successMessage}
-            {privateKey && (
-              <div style={{ marginTop: '10px', wordBreak: 'break-word' }}>
-                <div>
-                  <strong>Your Private Key:</strong>
-                  <div style={{ wordBreak: 'break-word' }}>
-                    {privateKey}
-                  </div>
-                  <Button
-                    onClick={copyPrivateKey}
-                    size="small"
-                    startIcon={<FileCopyIcon />}
-                    style={{ marginLeft: '10px', color: '#fff' }}
-                  >
-                    Copy Private Key
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        <div className="input">
+    <div className="signup-container">
+      <Container maxWidth="sm" className="signup-form">
+        <Typography variant="h4" gutterBottom>
+          Create Account
+        </Typography>
+
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <strong>Development Mode:</strong> Using Hardhat test accounts. 
+          Never enter real private keys in development.
+        </Alert>
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <TextField
+            margin="normal"
+            required
+            fullWidth
             label="Username"
-            fullWidth
-            margin="normal"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            name="username"
+            value={formData.username}
+            onChange={(e) => setFormData({...formData, username: e.target.value})}
           />
+
           <TextField
-            label="Email Address"
-            fullWidth
             margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            required
+            fullWidth
+            label="Email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({...formData, email: e.target.value})}
           />
+
           <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
             label="Password"
             type="password"
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={formData.password}
+            onChange={(e) => setFormData({...formData, password: e.target.value})}
           />
-        </div>
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Button variant="contained" color="primary" endIcon={<SendIcon />} onClick={handleSubmit}>
-            Sign Up
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label="Confirm Password"
+            type="password"
+            value={formData.confirmPassword}
+            onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+          />
+
+          <TextField
+            margin="normal"
+            fullWidth
+            name="privateKey"
+            label="Hardhat Private Key (Dev Only)"
+            value={formData.privateKey}
+            onChange={(e) => setFormData({...formData, privateKey: e.target.value})}
+            helperText="Only for development with Hardhat test accounts"
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+          >
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </Button>
-        </div>
-        <div style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}>
-          Already have an account? <a href="/login" style={{ color: '#328888' }}>Login here</a>
-        </div>
+        </Box>
       </Container>
     </div>
   );
 };
 
-export default Register;
+export default Signup;

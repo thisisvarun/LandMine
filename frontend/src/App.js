@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import './styles/App.css';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import Web3 from 'web3';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import './styles/App.css';
+
+// Components
 import Signup from './pages/Signup/Signup';
 import Dashboard from './components/Dashboard/Dashboard';
 import Header from './components/common/Header';
@@ -10,67 +15,165 @@ import Profile from './components/Profile/Profile';
 import Help from './components/Help/Help';
 import Home from './components/common/Home';
 import Login from './pages/Login/Login';
-import { Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Loading from './components/common/Loading';
 
 const App = () => {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [govtAuthenticated, setGovtAuthenticated] = useState(false);
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    isGovtAuthenticated: false,
+    walletAddress: '',
+    loading: true
+  });
+  const navigate = useNavigate();
 
+  // Initialize Web3 and auth state
   useEffect(() => {
-    const loadWeb3 = async () => {
-      if (window.ethereum) {
-        window.web3 = new Web3(window.ethereum);
-        try {
-          // Request account access using modern MetaMask API
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-        } catch (error) {
-          console.error('User denied account access', error);
-          window.alert('Please allow MetaMask to connect to this app.');
+    const initializeApp = async () => {
+      try {
+        // 1. Initialize Web3
+        if (window.ethereum) {
+          window.web3 = new Web3(window.ethereum);
+          
+          // Request account access
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const currentAccount = accounts[0] || '';
+          
+          // Listen for account changes
+          window.ethereum.on('accountsChanged', (accounts) => {
+            handleAccountChange(accounts[0] || '');
+          });
+
+          // 2. Check existing auth state
+          const token = localStorage.getItem('authToken');
+          const userRole = localStorage.getItem('userRole');
+          const storedAddress = localStorage.getItem('walletAddress');
+
+          setAuthState({
+            isAuthenticated: !!token,
+            isGovtAuthenticated: userRole === 'government',
+            walletAddress: currentAccount || storedAddress || '',
+            loading: false
+          });
+
+          // 3. Validate session if token exists
+          if (token) {
+            await validateSession(token, currentAccount);
+          }
+        } else {
+          toast.warn('Please install MetaMask for full functionality');
+          setAuthState(prev => ({ ...prev, loading: false }));
         }
-      } else if (window.web3) {
-        window.web3 = new Web3(window.web3.currentProvider);
-      } else {
-        window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!');
+      } catch (error) {
+        console.error('Initialization error:', error);
+        setAuthState(prev => ({ ...prev, loading: false }));
+        toast.error('Failed to initialize application');
       }
     };
 
-    const loadBlockchainData = async () => {
-      const web3 = window.web3;
-      if (web3) {
-        const accounts = await web3.eth.getAccounts();
-        if (accounts.length > 0) {
-          window.localStorage.setItem('web3account', accounts[0]);
-        }
+    initializeApp();
+
+    return () => {
+      // Cleanup event listeners
+      if (window.ethereum?.removeListener) {
+        window.ethereum.removeListener('accountsChanged', handleAccountChange);
       }
     };
-
-    const updateAuthState = () => {
-      const auth = window.localStorage.getItem('authenticated') === 'true';
-      const govtAuth = window.localStorage.getItem('govtAuthenticated') === 'true';
-      setAuthenticated(auth);
-      setGovtAuthenticated(govtAuth);
-    };
-
-    const initialize = async () => {
-      await loadWeb3();
-      await loadBlockchainData();
-      updateAuthState();
-    };
-
-    initialize();
   }, []);
+
+  const handleAccountChange = (newAccount) => {
+    if (newAccount !== authState.walletAddress) {
+      setAuthState(prev => ({
+        ...prev,
+        walletAddress: newAccount
+      }));
+      localStorage.setItem('walletAddress', newAccount);
+      
+      if (authState.isAuthenticated) {
+        toast.info('Wallet account changed. Please re-authenticate.');
+        handleLogout();
+      }
+    }
+  };
+
+  const validateSession = async (token, currentAddress) => {
+    try {
+      // Here you would typically make an API call to validate the token
+      // For now, we'll just check if the wallet address matches
+      const storedAddress = localStorage.getItem('walletAddress');
+      if (currentAddress && storedAddress !== currentAddress) {
+        handleLogout();
+        toast.warn('Wallet address changed. Please login again.');
+      }
+    } catch (error) {
+      console.error('Session validation error:', error);
+      handleLogout();
+    }
+  };
+
+  const handleLogin = (token, role) => {
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userRole', role);
+    localStorage.setItem('walletAddress', authState.walletAddress);
+    
+    setAuthState({
+      isAuthenticated: true,
+      isGovtAuthenticated: role === 'government',
+      walletAddress: authState.walletAddress,
+      loading: false
+    });
+
+    navigate(role === 'government' ? '/dashboard_govt' : '/dashboard');
+    toast.success(`Successfully logged in as ${role === 'government' ? 'Government' : 'User'}`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('walletAddress');
+    
+    setAuthState({
+      isAuthenticated: false,
+      isGovtAuthenticated: false,
+      walletAddress: '',
+      loading: false
+    });
+
+    navigate('/');
+    toast.info('Logged out successfully');
+  };
+
+  if (authState.loading) {
+    return <Loading fullScreen />;
+  }
 
   return (
     <div className="App">
-      <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
+      <ToastContainer position="bottom-right" />
+      <Header 
+        authState={authState} 
+        onLogout={handleLogout} 
+      />
+      
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/dashboard_govt" element={<Dashboard_Govt />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/registration_form" element={<RegistrationForm />} />
+        <Route path="/signup" element={<Signup web3={window.web3} />} />
+        <Route 
+          path="/login" 
+          element={<Login onLogin={handleLogin} web3={window.web3} />} 
+        />
+        
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute isAllowed={authState.isAuthenticated} />}>
+          <Route path="/dashboard" element={<Dashboard walletAddress={authState.walletAddress} />} />
+          <Route path="/profile" element={<Profile walletAddress={authState.walletAddress} />} />
+          <Route path="/registration_form" element={<RegistrationForm />} />
+        </Route>
+        
+        <Route element={<ProtectedRoute isAllowed={authState.isGovtAuthenticated} />}>
+          <Route path="/dashboard_govt" element={<Dashboard_Govt walletAddress={authState.walletAddress} />} />
+        </Route>
+        
         <Route path="/guide" element={<Help />} />
       </Routes>
     </div>

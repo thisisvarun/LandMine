@@ -1,0 +1,81 @@
+.signup-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+  }
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .signup-form {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 2rem;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  .signup-title {
+    color: white;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .wallet-alert {
+    margin-bottom: 1.5rem;
+  }
+  
+  .signup-form-box {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .signup-button {
+    margin-top: 1rem;
+    padding: 12px;
+  }
+  
+  .login-link {
+    color: white;
+    text-align: center;
+    margin-top: 1.5rem;
+  }
+  
+  .login-link button {
+    color: #328888;
+    padding: 0;
+    min-width: auto;
+  }
+  
+  /* Input field styling */
+  .MuiFormLabel-root {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+  
+  .MuiOutlinedInput-root {
+    color: white !important;
+  }
+  
+  .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.5) !important;
+  }
+  
+  .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-color: #328888 !important;
+  }
+  
+  .Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #328888 !important;
+  }

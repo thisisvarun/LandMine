@@ -1,22 +1,37 @@
+require('dotenv').config();
 const Government = require('../models/Government');
 const bcrypt = require('bcrypt');
 
 async function seedGovernmentUser() {
-  const existing = await Government.findOne({ username: 'admin' });
-  if (existing) return;
+  try {
+    // Validate .env variables
+    if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+      throw new Error('Missing admin credentials in .env');
+    }
 
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+    // Skip if already exists
+    if (await Government.findOne({ username: process.env.ADMIN_USERNAME })) {
+      return { success: true, message: 'Admin user already exists' };
+    }
 
-  const govtUser = new Government({
-    username: 'admin',
-    password: hashedPassword,
-    address: '0x383E286EA48E1626605e349C6a72c11e10CC46F1',
-    contact: '1234567890',
-    city: 'Surampalem', // Add a city to match schema
-  });
+    // Create admin
+    await Government.create({
+      username: process.env.ADMIN_USERNAME,
+      password: await bcrypt.hash(process.env.ADMIN_PASSWORD, 12), // Increased salt rounds
+      address: process.env.ADMIN_ADDRESS,
+      contact: process.env.ADMIN_CONTACT,
+      city: process.env.ADMIN_CITY,
+      role: 'superadmin'
+    });
 
-  await govtUser.save();
-  console.log('✅ Government user seeded.');
+    return { success: true, message: 'Government admin seeded successfully' };
+  } catch (error) {
+    return { 
+      success: false, 
+      message: 'Seeding failed',
+      error: error.message 
+    };
+  }
 }
 
 module.exports = seedGovernmentUser;

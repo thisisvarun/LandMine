@@ -53,7 +53,7 @@ const Profile = () => {
           navigate('/login'); // Use navigate hook for redirection
         }
       } else {
-        alert('Please install Trust Wallet or MetaMask.');
+        alert('Please install Trust Wallet.');
       }
     };
 

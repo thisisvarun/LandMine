@@ -1,135 +1,139 @@
-import React, { useState } from 'react';
-import { TextField, Button, Container } from '@mui/material';
+import React, { useState, useContext } from 'react';
+import { TextField, Button, Container, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { AuthContext } from '../../providers/AuthProvider';
+import { Web3Context } from '../../providers/Web3Provider';
+import './Login.css'; // Extracted styles to CSS file
 
-const styles = {
-  root: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%,-50%)',
-    '& .MuiFormLabel-root': { color: '#fff' },
-    '& .MuiInputBase-root': { color: '#fff' },
-    '& .MuiInput-underline:before': { borderBottomColor: '#fff' },
-    '& .MuiInput-underline:after': { borderBottomColor: '#fff' },
-    '& .MuiInput-underline:hover': { borderBottomColor: '#fff' },
-    '& .MuiButton-containedPrimary': {
-      backgroundColor: '#328888',
-      fontFamily: "'Roboto Condensed', sans-serif",
-    },
-  },
-};
-
-const CombinedLogin = () => {
+const Login = () => {
   const [isGovtLogin, setIsGovtLogin] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate(); // Using useNavigate for navigation
+  const { setAuthState } = useContext(AuthContext);
+  const { account } = useContext(Web3Context);
+  const navigate = useNavigate();
 
-  const handleLoginTypeChange = (event) => {
-    setIsGovtLogin(event.target.value === 'govt');
+  const handleLoginTypeChange = () => {
+    setIsGovtLogin(!isGovtLogin);
+    setIdentifier('');
+    setPassword('');
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
+
     if (!identifier || !password) {
-      setError('All fields are required.');
+      toast.error('All fields are required');
       setLoading(false);
       return;
     }
 
-    const payload = isGovtLogin
-      ? { username: identifier, password, isGovt: true }
-      : { email: identifier, password, isGovt: false };
-
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          [isGovtLogin ? 'username' : 'email']: identifier,
+          password,
+          isGovernment: isGovtLogin,
+          walletAddress: account
+        }),
+        credentials: 'include' // For httpOnly cookies if using them
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        if (data.role === 'government') {
-          localStorage.setItem('govtAuthenticated', 'true');
-          navigate('/dashboard_govt'); // Using navigate instead of history.push
-        } else {
-          localStorage.setItem('authenticated', 'true');
-          localStorage.setItem('userEmail', data.email);
-          navigate('/dashboard'); // Using navigate instead of history.push
-        }
-      } else {
-        setError(data.message);
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
       }
-    } catch (err) {
-      setError('Network error');
-    }
 
-    setLoading(false);
+      // Update global auth state
+      setAuthState({
+        isAuthenticated: true,
+        isGovt: isGovtLogin,
+        isLoading: false
+      });
+
+      // Navigate based on role
+      navigate(isGovtLogin ? '/dashboard_govt' : '/dashboard');
+      
+      toast.success(`Welcome ${data.user?.username || ''}`);
+
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.error(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="profile-bg">
-      <Container style={{ marginTop: '40px' }} sx={styles.root}>
-        <div className="login-text">Login</div>
+    <div className="login-container">
+      <Container className="login-form">
+        <h2 className="login-title">Login</h2>
 
-        <div style={{ marginBottom: '20px' }}>
+        <div className="login-toggle">
           <Button
-            variant={isGovtLogin ? 'outlined' : 'contained'}
+            variant={!isGovtLogin ? 'contained' : 'outlined'}
             color="primary"
-            onClick={() => setIsGovtLogin(false)}
+            onClick={handleLoginTypeChange}
           >
             User Login
           </Button>
           <Button
-            variant={!isGovtLogin ? 'outlined' : 'contained'}
+            variant={isGovtLogin ? 'contained' : 'outlined'}
             color="primary"
-            onClick={() => setIsGovtLogin(true)}
-            style={{ marginLeft: '10px' }}
+            onClick={handleLoginTypeChange}
+            className="govt-login-btn"
           >
             Government Login
           </Button>
         </div>
 
-        {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <TextField
+            label={isGovtLogin ? 'Username' : 'Email'}
+            fullWidth
+            value={identifier}
+            margin="normal"
+            onChange={(e) => setIdentifier(e.target.value)}
+            variant="outlined"
+            className="login-input"
+          />
 
-        <TextField
-          label={isGovtLogin ? 'Username' : 'Email'}
-          fullWidth
-          value={identifier}
-          margin="normal"
-          onChange={(e) => setIdentifier(e.target.value)}
-        />
-        <TextField
-          label="Password"
-          type="password"
-          fullWidth
-          value={password}
-          margin="normal"
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <TextField
+            label="Password"
+            type="password"
+            fullWidth
+            value={password}
+            margin="normal"
+            onChange={(e) => setPassword(e.target.value)}
+            variant="outlined"
+            className="login-input"
+          />
 
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Button
-            variant="contained"
-            color="primary"
-            endIcon={<SendIcon />}
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </Button>
-        </div>
+          <div className="login-submit">
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              endIcon={loading ? <CircularProgress size={24} /> : <SendIcon />}
+              disabled={loading}
+              fullWidth
+            >
+              {loading ? 'Authenticating...' : 'Login'}
+            </Button>
+          </div>
+        </form>
 
         {!isGovtLogin && (
-          <div style={{ marginTop: '20px', textAlign: 'center', color: '#fff' }}>
+          <div className="login-signup-link">
             Don't have an account?{' '}
-            <a href="/signup" style={{ color: '#328888' }}>
+            <a href="/signup" className="signup-link">
               Sign Up
             </a>
           </div>
@@ -139,4 +143,4 @@ const CombinedLogin = () => {
   );
 };
 
-export default CombinedLogin;
+export default Login;
