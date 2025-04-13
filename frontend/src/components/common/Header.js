@@ -19,7 +19,7 @@ const useStyles = makeStyles(() => ({
   },
   connectBtn: {
     background: '#ff9800',
-    color: '#fff !important',
+    color: '#fff',
     padding: '8px 16px',
     border: 'none',
     borderRadius: '4px',

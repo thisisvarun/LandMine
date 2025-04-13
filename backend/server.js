@@ -47,11 +47,12 @@ app.post('/login', async (req, res) => {
   try {
     if (isGovt) {
       const Government = require('./models/Government');
-      const govtUser = await Government.findOne({ username: email }); // Ensure 'email' is correctly mapped to 'username' for Govt login
+      const govtUser = await Government.findOne({ username: email }); // this assumes you're using `username` for govt login
       if (!govtUser) {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
 
+      // Keep the bcrypt compare for govt users (password hashing is required for govt login)
       const valid = await bcrypt.compare(password, govtUser.password);
       if (!valid) {
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -60,13 +61,14 @@ app.post('/login', async (req, res) => {
       const token = jwt.sign({ id: govtUser._id, role: 'government' }, process.env.JWT_SECRET, { expiresIn: '1h' });
       return res.status(200).json({ success: true, token, role: 'government' });
     } else {
+      // No bcrypt compare for regular users, directly compare plain text passwords
       const user = await User.findOne({ email });
       if (!user) {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
 
-      const valid = await bcrypt.compare(password, user.password);
-      if (!valid) {
+      // Directly compare the plain text password
+      if (password !== user.password) {
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
 
@@ -78,6 +80,7 @@ app.post('/login', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
 
 
 // Signup route
