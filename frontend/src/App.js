@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import '../styles/App.css';
+import './styles/App.css';
 import Web3 from 'web3';
 import Signup from './pages/Signup/Signup';
 import Dashboard from './components/Dashboard/Dashboard';
