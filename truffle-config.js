@@ -10,10 +10,10 @@ module.exports = {
           process.env.QUICKNODE_RPC // Your QuickNode Sepolia HTTP URL
         ),
       network_id: 11155111, // Sepolia network ID
-      gas: 5000000,
-      gasPrice: 10000000000,
+      gas: 4465030,
       confirmations: 2,
-      networkCheckTimeout: 100000,
+      timeoutBlocks: 200,
+      skipDryRun: true,
     },
   },
   compilers: {

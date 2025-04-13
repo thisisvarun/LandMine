@@ -29,6 +29,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [generatedAddress, setGeneratedAddress] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
   const [account, setAccount] = useState('');
   const [web3, setWeb3] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,12 +50,18 @@ const Register = () => {
   const generateAddress = () => {
     const newAccount = web3.eth.accounts.create();
     setGeneratedAddress(newAccount.address);
+    setPrivateKey(newAccount.privateKey);
     return newAccount.address;
   };
 
   const copyAddress = () => {
     navigator.clipboard.writeText(generatedAddress);
     alert('Address copied to clipboard!');
+  };
+
+  const copyPrivateKey = () => {
+    navigator.clipboard.writeText(privateKey);
+    alert('Private key copied to clipboard!');
   };
 
   const handleSubmit = async () => {
@@ -95,15 +102,31 @@ const Register = () => {
             {successMessage}
             {generatedAddress && (
               <div style={{ marginTop: '10px', wordBreak: 'break-word' }}>
-                Your Address: {generatedAddress}
+                <div>
+                  <strong>Your Wallet Address:</strong> {generatedAddress}
+                </div>
                 <Button
                   onClick={copyAddress}
                   size="small"
                   startIcon={<FileCopyIcon />}
                   style={{ marginLeft: '10px', color: '#fff' }}
                 >
-                  Copy
+                  Copy Address
                 </Button>
+                <div style={{ marginTop: '10px' }}>
+                  <strong>Your Private Key:</strong>
+                  <div style={{ wordBreak: 'break-word' }}>
+                    {privateKey}
+                  </div>
+                  <Button
+                    onClick={copyPrivateKey}
+                    size="small"
+                    startIcon={<FileCopyIcon />}
+                    style={{ marginLeft: '10px', color: '#fff' }}
+                  >
+                    Copy Private Key
+                  </Button>
+                </div>
               </div>
             )}
           </div>
