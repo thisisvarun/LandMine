@@ -29,7 +29,9 @@ const GovtTable = ({ assetList }) => {
 
   useEffect(() => {
     const initWeb3 = async () => {
-      const web3 = window.web3;
+      const web3 = new Web3(
+        Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
+      );
       const accounts = await web3.eth.getAccounts();
       await window.localStorage.setItem('web3account', accounts[0]);
       setAccount(accounts[0]);

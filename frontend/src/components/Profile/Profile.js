@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { Container, Grid } from '@mui/material';
 import Land from '../../abis/LandRegistry.json';
-import profile from '../assets/images/avatar.png';
+import profile from '../../assets/images/avatar.png';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MailIcon from '@mui/icons-material/Mail';
 import PhoneIcon from '@mui/icons-material/Phone';

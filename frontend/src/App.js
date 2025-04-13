@@ -10,8 +10,7 @@ import Profile from './components/Profile/Profile';
 import Help from './components/Help/Help';
 import Home from './components/common/Home';
 import Login from './pages/Login/Login';
-import { Routes, Route} from 'react-router-dom';
-
+import { Routes, Route } from 'react-router-dom';
 
 const App = () => {
   const [authenticated, setAuthenticated] = useState(false);
@@ -21,7 +20,13 @@ const App = () => {
     const loadWeb3 = async () => {
       if (window.ethereum) {
         window.web3 = new Web3(window.ethereum);
-        await window.ethereum.enable();
+        try {
+          // Request account access using modern MetaMask API
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+        } catch (error) {
+          console.error('User denied account access', error);
+          window.alert('Please allow MetaMask to connect to this app.');
+        }
       } else if (window.web3) {
         window.web3 = new Web3(window.web3.currentProvider);
       } else {
@@ -31,9 +36,11 @@ const App = () => {
 
     const loadBlockchainData = async () => {
       const web3 = window.web3;
-      const accounts = await web3.eth.getAccounts();
-      if (accounts.length > 0) {
-        window.localStorage.setItem('web3account', accounts[0]);
+      if (web3) {
+        const accounts = await web3.eth.getAccounts();
+        if (accounts.length > 0) {
+          window.localStorage.setItem('web3account', accounts[0]);
+        }
       }
     };
 
@@ -44,27 +51,29 @@ const App = () => {
       setGovtAuthenticated(govtAuth);
     };
 
-    loadWeb3();
-    loadBlockchainData();
-    updateAuthState();
+    const initialize = async () => {
+      await loadWeb3();
+      await loadBlockchainData();
+      updateAuthState();
+    };
+
+    initialize();
   }, []);
 
   return (
-    <Routes>
-      <div className="App">
-        <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
-        <Switch>
-          <Route exact path="/" component={Home} />
-          <Route exact path="/signup" component={Signup} />
-          <Route exact path="/login" component={Login} />
-          <Route exact path="/dashboard" component={Dashboard} />
-          <Route exact path="/dashboard_govt" component={Dashboard_Govt} />
-          <Route exact path="/profile" component={Profile} />
-          <Route exact path="/registration_form" component={RegistrationForm} />
-          <Route exact path="/guide" component={Help} />
-        </Switch>
-      </div>
-    </Routes>
+    <div className="App">
+      <Header authenticated={authenticated} govtAuthenticated={govtAuthenticated} />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard_govt" element={<Dashboard_Govt />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/registration_form" element={<RegistrationForm />} />
+        <Route path="/guide" element={<Help />} />
+      </Routes>
+    </div>
   );
 };
 

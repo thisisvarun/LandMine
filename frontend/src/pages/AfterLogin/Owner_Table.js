@@ -35,10 +35,10 @@ class OwnerTable extends Component {
   }
 
   componentDidMount = async () => {
-    let web3;
-
+    const web3 = new Web3(
+      Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
+    );
     if (window.ethereum) {
-      web3 = new Web3(window.ethereum);
       try {
         await window.ethereum.request({ method: 'eth_requestAccounts' });
         const accounts = await web3.eth.getAccounts();
@@ -47,8 +47,6 @@ class OwnerTable extends Component {
       } catch (error) {
         console.error("User denied account access", error);
       }
-    } else if (window.web3) {
-      web3 = new Web3(window.web3.currentProvider);
     } else {
       window.alert('Please install a web3-enabled browser like Trust Wallet or MetaMask.');
     }

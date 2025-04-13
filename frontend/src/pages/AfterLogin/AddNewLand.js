@@ -3,7 +3,10 @@ import { TextField, Button, Container, Checkbox, FormControlLabel } from '@mui/m
 import SendIcon from '@mui/icons-material/Send';
 import Land from '../../abis/LandRegistry.json';
 import axios from 'axios';
-import { ipfs } from 'ipfs-http-client';  // Import ipfs-http-client for IPFS functionality
+import { create } from 'ipfs-http-client'; 
+import Web3 from 'web3';
+
+const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' });  // Initialize IPFS client
 
 class Register extends Component {
   constructor(props) {
@@ -36,7 +39,9 @@ class Register extends Component {
   }
 
   componentDidMount = async () => {
-    const web3 = window.web3;
+    const web3 = new Web3(
+      Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
+    );
     if (window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });

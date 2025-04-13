@@ -37,7 +37,7 @@ const Register = () => {
 
   useEffect(() => {
     const initializeWeb3 = async () => {
-      const web3Instance = new Web3(Web3.givenProvider || 'http://localhost:8545');
+      const web3Instance = new Web3(Web3.givenProvider || process.env.QUICKNODE_RPC);
       const accounts = await web3Instance.eth.getAccounts();
       setWeb3(web3Instance);
       setAccount(accounts[0] || '');

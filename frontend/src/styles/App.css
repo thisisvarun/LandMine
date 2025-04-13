@@ -20,16 +20,16 @@ ul {
 }
 
 .bg {
-	background: url('./images/bg.jpg');
+	background: url('../assets/images/bg.png');
 	background-repeat: no-repeat;
 	background-size: cover;
-	height: 125vh;
+	height: 110vh;
 }
 .home-text {
 	color: #fff;
 	font-size: 90px;
 	font-weight: 600;
-	padding-top: 350px;
+	padding-top: 280px;
 	padding-left: 80px;
 	text-transform: uppercase;
 	line-height: 95px;

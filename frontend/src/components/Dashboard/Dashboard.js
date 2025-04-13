@@ -8,8 +8,10 @@ import AvailableTable from '../../pages/AfterLogin/Buyer_Table'
 import RegistrationForm from '../../pages/AfterLogin/AddNewLand'
 import axios from 'axios'
 import Web3 from 'web3'
-import { create } from 'ipfs-http-client';
+import { create } from 'ipfs-http-client'
 
+// Initialize IPFS client
+const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props
@@ -69,135 +71,146 @@ class Dashboard extends Component {
   }
 
   componentDidMount = async () => {
-    // Use Trust Wallet via the Web3 provider
-    const web3 = new Web3(window.ethereum) // Trust Wallet uses window.ethereum
-    const accounts = await web3.eth.requestAccounts() // Request accounts via Trust Wallet
-    await window.localStorage.setItem('web3account', accounts[0])
-    this.setState({ account: accounts[0] })
-
-    const networkId = await web3.eth.net.getId()
-    const LandData = Land.networks[networkId]
-
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address)
-      this.setState({ landList })
-    } else {
-      window.alert('Token contract not deployed to detected network.')
-    }
-
-    this.setState({ isLoading: false })
-    this.getDetails()
-    this.getDetails1()
-
     try {
-      let res = await axios.get('http://localhost:4000/owner')
-      res = res.data
-      this.setState({ assetList: [...res] })
+      const web3 = new Web3(
+        Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
+      );
+      const accounts = await web3.eth.requestAccounts()
+      await window.localStorage.setItem('web3account', accounts[0])
+      this.setState({ account: accounts[0] })
+
+      const networkId = await web3.eth.net.getId()
+      const LandData = Land.networks[networkId]
+
+      if (LandData) {
+        const landList = new web3.eth.Contract(Land.abi, LandData.address)
+        this.setState({ landList })
+      } else {
+        window.alert('Token contract not deployed to detected network.')
+      }
+
+      this.setState({ isLoading: false })
+      this.getDetails()
+      this.getDetails1()
+
+      const res = await axios.get('http://localhost:4000/owner')
+      this.setState({ assetList: [...res.data] })
     } catch (error) {
-      console.log(error)
+      console.error(error)
     }
   }
 
   async propertyDetails(property) {
-    let details = await this.state.landList.methods
-      .landInfoOwner(property)
-      .call()
-    ipfs.cat(details[1], (err, res) => {
-      if (err) {
-        console.error(err)
-        return
-      }
-      const temp = JSON.parse(res.toString())
-      this.state.assetList.push({
-        property: property,
-        uniqueID: details[1],
-        name: temp.name,
-        key: details[0],
-        email: temp.email,
-        contact: temp.contact,
-        pan: temp.pan,
-        occupation: temp.occupation,
-        oaddress: temp.address,
-        ostate: temp.state,
-        ocity: temp.city,
-        opostalCode: temp.postalCode,
-        laddress: temp.laddress,
-        lstate: temp.lstate,
-        lcity: temp.lcity,
-        lpostalCode: temp.lpostalCode,
-        larea: temp.larea,
-        lamount: details[2],
-        isGovtApproved: details[3],
-        isAvailable: details[4],
-        requester: details[5],
-        requestStatus: details[6],
-        document: temp.document,
-        images: temp.images,
-      })
-      this.setState({ assetList: [...this.state.assetList] })
-    })
+    try {
+      const details = await this.state.landList.methods.landInfoOwner(property).call()
+      const res = await ipfs.cat(details[1])
+      const temp = JSON.parse(new TextDecoder().decode(res))
+
+      this.setState((prevState) => ({
+        assetList: [
+          ...prevState.assetList,
+          {
+            property: property,
+            uniqueID: details[1],
+            name: temp.name,
+            key: details[0],
+            email: temp.email,
+            contact: temp.contact,
+            pan: temp.pan,
+            occupation: temp.occupation,
+            oaddress: temp.address,
+            ostate: temp.state,
+            ocity: temp.city,
+            opostalCode: temp.postalCode,
+            laddress: temp.laddress,
+            lstate: temp.lstate,
+            lcity: temp.lcity,
+            lpostalCode: temp.lpostalCode,
+            larea: temp.larea,
+            lamount: details[2],
+            isGovtApproved: details[3],
+            isAvailable: details[4],
+            requester: details[5],
+            requestStatus: details[6],
+            document: temp.document,
+            images: temp.images,
+          },
+        ],
+      }))
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async propertyDetails1(property) {
-    let details = await this.state.landList.methods
-      .landInfoOwner(property)
-      .call()
-    ipfs.cat(details[1], (err, res) => {
-      if (err) {
-        console.error(err)
-        return
-      }
-      const temp = JSON.parse(res.toString())
+    try {
+      const details = await this.state.landList.methods.landInfoOwner(property).call()
+      const res = await ipfs.cat(details[1])
+      const temp = JSON.parse(new TextDecoder().decode(res))
 
       if (
         details[0] !== this.state.account &&
         (details[5] === this.state.account ||
           details[5] === '0x0000000000000000000000000000000000000000')
       ) {
-        this.state.assetList1.push({
-          property: property,
-          uniqueID: details[1],
-          name: temp.name,
-          key: details[0],
-          email: temp.email,
-          contact: temp.contact,
-          pan: temp.pan,
-          occupation: temp.occupation,
-          oaddress: temp.address,
-          ostate: temp.state,
-          ocity: temp.city,
-          opostalCode: temp.postalCode,
-          laddress: temp.laddress,
-          lstate: temp.lstate,
-          lcity: temp.lcity,
-          lpostalCode: temp.lpostalCode,
-          larea: temp.larea,
-          lamount: details[2],
-          isGovtApproved: details[3],
-          isAvailable: details[4],
-          requester: details[5],
-          requestStatus: details[6],
-          document: temp.document,
-          images: temp.images,
-        })
-        this.setState({ assetList1: [...this.state.assetList1] })
+        this.setState((prevState) => ({
+          assetList1: [
+            ...prevState.assetList1,
+            {
+              property: property,
+              uniqueID: details[1],
+              name: temp.name,
+              key: details[0],
+              email: temp.email,
+              contact: temp.contact,
+              pan: temp.pan,
+              occupation: temp.occupation,
+              oaddress: temp.address,
+              ostate: temp.state,
+              ocity: temp.city,
+              opostalCode: temp.postalCode,
+              laddress: temp.laddress,
+              lstate: temp.lstate,
+              lcity: temp.lcity,
+              lpostalCode: temp.lpostalCode,
+              larea: temp.larea,
+              lamount: details[2],
+              isGovtApproved: details[3],
+              isAvailable: details[4],
+              requester: details[5],
+              requestStatus: details[6],
+              document: temp.document,
+              images: temp.images,
+            },
+          ],
+        }))
       }
-    })
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async getDetails() {
-    const properties = await this.state.landList.methods
-      .viewAssets()
-      .call({ from: this.state.account })
-    for (let item of properties) {
-      this.propertyDetails(item)
+    try {
+      const properties = await this.state.landList.methods
+        .viewAssets()
+        .call({ from: this.state.account })
+      for (let item of properties) {
+        await this.propertyDetails(item)
+      }
+    } catch (error) {
+      console.error(error)
     }
   }
 
   async getDetails1() {
-    const properties = await this.state.landList.methods.Assets().call()
-    for (let item of properties) {
-      this.propertyDetails1(item)
+    try {
+      const properties = await this.state.landList.methods.Assets().call()
+      for (let item of properties) {
+        await this.propertyDetails1(item)
+      }
+    } catch (error) {
+      console.error(error)
     }
   }
 
