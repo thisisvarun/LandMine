@@ -1,14 +1,21 @@
 import React, { Component } from 'react';
-import { Container, Grid } from '@material-ui/core';
+import { Container, Grid } from '@mui/material';
 import Land from '../../abis/LandRegistry.json';
 import profile from '../assets/images/avatar.png';
-import LocationOnIcon from '@material-ui/icons/LocationOn';
-import MailIcon from '@material-ui/icons/Mail';
-import PhoneIcon from '@material-ui/icons/Phone';
-import VpnKeyIcon from '@material-ui/icons/VpnKey';
-import AccountBalanceWalletIcon from '@material-ui/icons/AccountBalanceWallet';
-import { withRouter } from 'react-router-dom';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import MailIcon from '@mui/icons-material/Mail';
+import PhoneIcon from '@mui/icons-material/Phone';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import { useNavigate } from 'react-router-dom';
 import Web3 from 'web3';
+
+function withRouter(Component) {
+  return function WrappedComponent(props) {
+    const navigate = useNavigate();
+    return <Component {...props} history={{ push: navigate }} />;
+  };
+}
 
 class Profile extends Component {
   constructor(props) {
@@ -31,9 +38,8 @@ class Profile extends Component {
   async componentDidMount() {
     if (window.ethereum) {
       const web3 = new Web3(window.ethereum);
-      await window.ethereum.enable();  // Ensure Trust Wallet is connected
+      await window.ethereum.enable();
 
-      // Get the connected account
       const accounts = await web3.eth.getAccounts();
       if (!accounts || accounts.length === 0) {
         alert('No wallet account found.');
@@ -52,7 +58,6 @@ class Profile extends Component {
         const landList = new web3.eth.Contract(Land.abi, LandData.address);
         this.setState({ landList });
 
-        // Fetch user details from the blockchain using the wallet address
         const user = await landList.methods.getUser(account).call();
         this.setState({
           uid: user[0],
@@ -67,7 +72,6 @@ class Profile extends Component {
         window.alert('Smart contract not deployed to the detected network.');
       }
 
-      // Redirect if not authenticated (checking localStorage for authentication)
       const auth = window.localStorage.getItem('authenticated');
       if (!auth || auth !== 'true') {
         this.props.history.push('/login');

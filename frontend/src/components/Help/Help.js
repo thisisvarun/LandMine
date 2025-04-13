@@ -1,11 +1,8 @@
 import React, { Component } from 'react'
-import Accordion from '@material-ui/core/Accordion'
-import AccordionSummary from '@material-ui/core/AccordionSummary'
-import AccordionDetails from '@material-ui/core/AccordionDetails'
-import Typography from '@material-ui/core/Typography'
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import { withStyles } from '@material-ui/core/styles'
-import { Container } from '@material-ui/core'
+import { Accordion, AccordionSummary, AccordionDetails, Typography, Container } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { withStyles } from '@mui/styles'
+
 
 const styles = () => ({
   root: {

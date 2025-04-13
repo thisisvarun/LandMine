@@ -1,12 +1,9 @@
 import React, { Component } from 'react';
-import TextField from '@material-ui/core/TextField';
-import Button from '@material-ui/core/Button';
-import { Container } from '@material-ui/core';
-import SendIcon from '@material-ui/icons/Send';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Checkbox from '@material-ui/core/Checkbox';
+import { TextField, Button, Container, Checkbox, FormControlLabel } from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
 import Land from '../../abis/LandRegistry.json';
 import axios from 'axios';
+import { ipfs } from 'ipfs-http-client';  // Import ipfs-http-client for IPFS functionality
 
 class Register extends Component {
   constructor(props) {
