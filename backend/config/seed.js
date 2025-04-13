@@ -10,7 +10,7 @@ async function seedGovernmentUser() {
   const govtUser = new Government({
     username: 'admin',
     password: hashedPassword,
-    address: '0x4335BdD13cB56abf4542b841a0e7ca9fb7f4CBFc',
+    address: '0x383E286EA48E1626605e349C6a72c11e10CC46F1',
     contact: '1234567890',
     city: 'Surampalem', // Add a city to match schema
   });

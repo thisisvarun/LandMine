@@ -32,7 +32,7 @@ const UserSchema = new mongoose.Schema({
   username: String,
   email: String,
   password: String,
-  accountAddress: String,
+  privateKey: String,
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -84,25 +84,26 @@ app.post('/login', async (req, res) => {
 
 
 // Signup route
+// Example POST handler for saving user info
 app.post('/signup', async (req, res) => {
-  const { username, email, password, accountAddress } = req.body;
-  if (!username || !email || !password || !accountAddress) {
-    return res.status(400).json({ success: false, message: 'Missing fields' });
-  }
+  const { username, email, password, privateKey } = req.body;
 
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ success: false, message: 'Email already registered' });
+    const newUser = new User({
+      username,
+      email,
+      password, // In a real-world app, hash the password before saving
+      privateKey, // Store only private key here
+    });
 
-    const newUser = new User({ username, email, password, accountAddress });
     await newUser.save();
-
-    res.status(200).json({ success: true, message: 'User registered' });
-  } catch (err) {
-    console.error('Signup error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(200).json({ success: true, message: 'User registered successfully.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error during signup.' });
   }
 });
+
 
 // Start server
 app.listen(PORT, () => {

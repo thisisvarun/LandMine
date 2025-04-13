@@ -28,7 +28,6 @@ const Register = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [generatedAddress, setGeneratedAddress] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [account, setAccount] = useState('');
   const [web3, setWeb3] = useState(null);
@@ -47,16 +46,10 @@ const Register = () => {
     initializeWeb3();
   }, []);
 
-  const generateAddress = () => {
+  const generatePrivateKey = () => {
     const newAccount = web3.eth.accounts.create();
-    setGeneratedAddress(newAccount.address);
     setPrivateKey(newAccount.privateKey);
-    return newAccount.address;
-  };
-
-  const copyAddress = () => {
-    navigator.clipboard.writeText(generatedAddress);
-    alert('Address copied to clipboard!');
+    return newAccount.privateKey;
   };
 
   const copyPrivateKey = () => {
@@ -70,18 +63,19 @@ const Register = () => {
     }
 
     try {
-      const generatedAddress = generateAddress();
+      const generatedPrivateKey = generatePrivateKey();
 
+      // Sending only private key to the backend
       const response = await axios.post('http://localhost:5000/signup', {
         username,
         email,
         password,
-        accountAddress: generatedAddress,
+        privateKey: generatedPrivateKey, // Only sending private key here
       });
 
       if (response.data.success) {
         setSuccessMessage('Registration successful!');
-        window.localStorage.setItem('userAddress', generatedAddress);
+        window.localStorage.setItem('privateKey', generatedPrivateKey);
         navigate('/login'); // Using navigate for redirection
       } else {
         setErrorMessage(response.data.message || 'Signup failed.');
@@ -100,20 +94,9 @@ const Register = () => {
         {successMessage && (
           <div className="alert alert-success">
             {successMessage}
-            {generatedAddress && (
+            {privateKey && (
               <div style={{ marginTop: '10px', wordBreak: 'break-word' }}>
                 <div>
-                  <strong>Your Wallet Address:</strong> {generatedAddress}
-                </div>
-                <Button
-                  onClick={copyAddress}
-                  size="small"
-                  startIcon={<FileCopyIcon />}
-                  style={{ marginLeft: '10px', color: '#fff' }}
-                >
-                  Copy Address
-                </Button>
-                <div style={{ marginTop: '10px' }}>
                   <strong>Your Private Key:</strong>
                   <div style={{ wordBreak: 'break-word' }}>
                     {privateKey}

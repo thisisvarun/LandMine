@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 // ✅ Updated government wallet address
-address payable constant govtAddress = payable(0x4335BdD13cB56abf4542b841a0e7ca9fb7f4CBFc);
+address payable constant govtAddress = payable(0x383E286EA48E1626605e349C6a72c11e10CC46F1);
 
 contract LandRegistry {
     struct Task {
