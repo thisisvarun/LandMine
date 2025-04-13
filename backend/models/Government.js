@@ -5,7 +5,6 @@ var govtSchema = mongoose.Schema({
   password: { type: String, required: true },
   address: { type: String, required: true },
   contact: { type: String, required: true },
-  city: { type: String, required: true },
 });
 
 module.exports = mongoose.model('GovernmentRegistrar', govtSchema);  // Updated collection name

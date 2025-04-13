@@ -44,31 +44,40 @@ class CombinedLogin extends Component {
   handleSubmit = async () => {
     const { isGovtLogin, email, password } = this.state;
     this.setState({ loading: true });
-
+  
     if (!email || !password) {
       this.setState({ error: 'Email and Password are required.', loading: false });
       return;
     }
-
-    if (isGovtLogin) {
-      if (email === 'admin@example.com' && password === 'admin123') {
-        window.localStorage.setItem('govtAuthenticated', 'true');
-        this.props.history.push('/dashboard_govt');
+  
+    try {
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, isGovt: isGovtLogin }),
+      });
+  
+      const data = await response.json();
+  
+      if (data.success) {
+        if (data.role === 'government') {
+          localStorage.setItem('govtAuthenticated', 'true');
+          this.props.history.push('/dashboard_govt');
+        } else {
+          localStorage.setItem('authenticated', 'true');
+          localStorage.setItem('userEmail', data.email);
+          this.props.history.push('/dashboard');
+        }
       } else {
-        alert('Invalid credentials. Try admin@example.com/admin123 for demo.');
+        this.setState({ error: data.message });
       }
-    } else {
-      if (email === 'user@example.com' && password === 'user123') {
-        window.localStorage.setItem('authenticated', 'true');
-        window.localStorage.setItem('userEmail', email);
-        this.props.history.push('/dashboard');
-      } else {
-        alert('Invalid user credentials.');
-      }
+    } catch (err) {
+      this.setState({ error: 'Network error' });
     }
-
+  
     this.setState({ loading: false });
   };
+  
 
   render() {
     const { classes } = this.props;
