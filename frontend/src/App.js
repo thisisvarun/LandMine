@@ -1,22 +1,15 @@
 import React, { Component } from 'react';
 import '../styles/App.css';
 import Web3 from 'web3';
-import {
-  BrowserRouter as Router,
-  Switch,
-  Route,
-} from 'react-router-dom';
-import Register from './Components/Signup';
-import Dashboard from './Components/Dashboard';
-import Header from './Containers/Header';
-import RegistrationForm from './Containers/AddNewLand';
-import Dashboard_Govt from './Components/Dashboard_Govt';
-import Profile from './Components/Profile';
-import Help from './Components/Help';
-import Home from './Components/Home';
-import CombinedLogin from './Components/Login';
-import Login from './Components/Login';
-import Signup from './Components/Signup';
+import Signup from './pages/Signup/Signup';
+import Dashboard from './components/Dashboard/Dashboard';
+import Header from './components/common/Header';
+import RegistrationForm from './pages/AfterLogin/AddNewLand';
+import Dashboard_Govt from './components/Dashboard/Dashboard_Govt';
+import Profile from './components/Profile/Profile';
+import Help from './components/Help/Help';
+import Home from './components/common/Home';
+import Login from './pages/Login/Login';
 
 class App extends Component {
   constructor(props) {

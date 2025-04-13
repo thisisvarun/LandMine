@@ -26,7 +26,7 @@ class CombinedLogin extends Component {
     super(props);
     this.state = {
       isGovtLogin: false,
-      email: '',
+      identifier: '',
       password: '',
       loading: false,
       error: '',
@@ -42,23 +42,27 @@ class CombinedLogin extends Component {
   };
 
   handleSubmit = async () => {
-    const { isGovtLogin, email, password } = this.state;
+    const { isGovtLogin, identifier, password } = this.state;
     this.setState({ loading: true });
-  
-    if (!email || !password) {
-      this.setState({ error: 'Email and Password are required.', loading: false });
+
+    if (!identifier || !password) {
+      this.setState({ error: 'All fields are required.', loading: false });
       return;
     }
-  
+
+    const payload = isGovtLogin
+      ? { username: identifier, password, isGovt: true }
+      : { email: identifier, password, isGovt: false };
+
     try {
       const response = await fetch('http://localhost:5000/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, isGovt: isGovtLogin }),
+        body: JSON.stringify(payload),
       });
-  
+
       const data = await response.json();
-  
+
       if (data.success) {
         if (data.role === 'government') {
           localStorage.setItem('govtAuthenticated', 'true');
@@ -74,14 +78,13 @@ class CombinedLogin extends Component {
     } catch (err) {
       this.setState({ error: 'Network error' });
     }
-  
+
     this.setState({ loading: false });
   };
-  
 
   render() {
     const { classes } = this.props;
-    const { isGovtLogin, email, password, loading, error } = this.state;
+    const { isGovtLogin, identifier, password, loading, error } = this.state;
 
     return (
       <div className="profile-bg">
@@ -89,7 +92,11 @@ class CombinedLogin extends Component {
           <div className="login-text">Login</div>
 
           <div style={{ marginBottom: '20px' }}>
-            <Button variant={isGovtLogin ? 'outlined' : 'contained'} color="primary" onClick={() => this.setState({ isGovtLogin: false })}>
+            <Button
+              variant={isGovtLogin ? 'outlined' : 'contained'}
+              color="primary"
+              onClick={() => this.setState({ isGovtLogin: false })}
+            >
               User Login
             </Button>
             <Button
@@ -107,9 +114,9 @@ class CombinedLogin extends Component {
           <TextField
             label={isGovtLogin ? 'Username' : 'Email'}
             fullWidth
-            value={email}
+            value={identifier}
             margin="normal"
-            onChange={this.handleChange('email')}
+            onChange={this.handleChange('identifier')}
           />
           <TextField
             label="Password"
@@ -121,7 +128,13 @@ class CombinedLogin extends Component {
           />
 
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <Button variant="contained" color="primary" endIcon={<SendIcon />} onClick={this.handleSubmit} disabled={loading}>
+            <Button
+              variant="contained"
+              color="primary"
+              endIcon={<SendIcon />}
+              onClick={this.handleSubmit}
+              disabled={loading}
+            >
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </div>

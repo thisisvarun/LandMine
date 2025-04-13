@@ -5,12 +5,12 @@ const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
 const seedGovernmentUser = require('./config/seed');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.SERVER_PORT || 5000;
 
 // Middleware
 app.use(cors());
@@ -47,30 +47,37 @@ app.post('/login', async (req, res) => {
   try {
     if (isGovt) {
       const Government = require('./models/Government');
-      const govtUser = await Government.findOne({ username: email });
-      if (!govtUser) return res.status(401).json({ success: false, message: 'User not found' });
+      const govtUser = await Government.findOne({ username: email }); // Ensure 'email' is correctly mapped to 'username' for Govt login
+      if (!govtUser) {
+        return res.status(401).json({ success: false, message: 'User not found' });
+      }
 
       const valid = await bcrypt.compare(password, govtUser.password);
-      if (!valid) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      if (!valid) {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
 
       const token = jwt.sign({ id: govtUser._id, role: 'government' }, process.env.JWT_SECRET, { expiresIn: '1h' });
       return res.status(200).json({ success: true, token, role: 'government' });
     } else {
       const user = await User.findOne({ email });
-      if (!user) return res.status(401).json({ success: false, message: 'User not found' });
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'User not found' });
+      }
 
       const valid = await bcrypt.compare(password, user.password);
-      if (!valid) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      if (!valid) {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
 
       const token = jwt.sign({ id: user._id, role: 'user' }, process.env.JWT_SECRET, { expiresIn: '1h' });
       return res.status(200).json({ success: true, token, role: 'user', email: user.email });
     }
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 
 
 // Signup route

@@ -71,8 +71,8 @@ class Register extends Component {
     try {
       const generatedAddress = this.generateAddress();
 
-      const response = await axios.post('http://localhost:5000/signup', {
-        username,  // Send the username as part of the request
+      const response = await axios.post(`http://localhost:5000/signup`, {
+        username,
         email,
         password,
         accountAddress: generatedAddress,
@@ -80,7 +80,6 @@ class Register extends Component {
 
       if (response.data.success) {
         this.setState({ successMessage: 'Registration successful!' });
-        // Optionally, store address and credentials locally or in a session
         window.localStorage.setItem('userAddress', generatedAddress);
       } else {
         this.setState({ errorMessage: response.data.message || 'Signup failed.' });
