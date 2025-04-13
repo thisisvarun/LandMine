@@ -1,7 +1,7 @@
 const express = require('express');
 const { 
+  signup, 
   login,
-  register,
   validateToken
 } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -9,10 +9,10 @@ const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Public routes
-router.post('/signup', register);
+router.post('/signup', signup);  // Changed from register to signup
 router.post('/login', login);
 
-// Protected test route (example)
+// Protected route to validate token
 router.get('/validate', authMiddleware, validateToken);
 
 module.exports = router;

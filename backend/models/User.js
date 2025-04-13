@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const { Web3 } = require('web3'); // Don't forget to import Web3
 
 const userSchema = new mongoose.Schema({
   username: { 
@@ -23,37 +24,45 @@ const userSchema = new mongoose.Schema({
     type: String, 
     required: [true, 'Password is required'],
     minlength: [8, 'Password must be at least 8 characters'],
-    select: false // Never return password in queries
+    select: false
   },
-  walletAddress: {  // Changed from privateKey (never store private keys!)
+  privateKey: {  // DEMO ONLY
     type: String,
-    required: [true, 'Wallet address is required'],
+    required: [true, 'Private key is required for demo'],
+    select: false,
+    validate: {
+      validator: (v) => /^0x[a-fA-F0-9]{64}$/.test(v),
+      message: 'Invalid private key format (64 hex chars after 0x)'
+    }
+  },
+  publicAddress: {  // Automatically derived
+    type: String,
+    required: true,
     validate: {
       validator: (v) => /^0x[a-fA-F0-9]{40}$/.test(v),
       message: 'Invalid Ethereum address'
     }
-  },
-  role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+}, { timestamps: true }); // Added timestamps instead of separate createdAt
 
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+  
+  try {
+    this.password = await bcrypt.hash(this.password, 10);
+    
+    // Only generate publicAddress if privateKey is modified
+    if (this.isModified('privateKey')) {
+      const web3 = new Web3();
+      const account = web3.eth.accounts.privateKeyToAccount(this.privateKey);
+      this.publicAddress = account.address;
+    }
+    
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
-
-// Password comparison method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
 
 module.exports = mongoose.model('User', userSchema);

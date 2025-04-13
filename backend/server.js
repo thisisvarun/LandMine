@@ -19,10 +19,18 @@ const authRoutes = require('./routes/auth');
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*'
+  origin: 'http://localhost:3000', // Your React app's URL
+  credentials: true
 }));
 app.use(bodyParser.json({ limit: '10kb' }));
 app.use(express.json());
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    success: false,
+    message: err.message || 'Internal Server Error' 
+  });
+});
 
 //Routes
 app.use('/api/auth', authRoutes);

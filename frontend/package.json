@@ -16,6 +16,7 @@
     "axios": "^1.8.4",
     "bootstrap": "latest",
     "dotenv": "latest",
+    "ethers": "^6.13.5",
     "ipfs-http-client": "latest",
     "prop-types": "^15.8.1",
     "react": "latest",

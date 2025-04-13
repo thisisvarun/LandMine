@@ -3,32 +3,19 @@ const User = require('../models/User');
 const Government = require('../models/Government');
 const { Web3 } = require('web3');
 
-// Hardhat test accounts for demo
-// const HARDHAT_TEST_KEYS = [
-//   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // Account #0
-//   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"  // Account #1
-// ];
 
 // Register a new user with private key (DEMO ONLY)
 const signup = async (req, res) => {
   try {
     const { username, email, password, privateKey } = req.body;
 
-    // Validate private key format
-    if (!privateKey.startsWith('0x') || privateKey.length !== 64) {
+    // Validate private key
+    if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
       return res.status(400).json({ 
         success: false,
         message: "Invalid private key format" 
       });
     }
-
-    // Verify it's a known Hardhat test key (demo safety check)
-    // if (!HARDHAT_TEST_KEYS.includes(privateKey)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Invalid test private key" 
-    //   });
-    // }
 
     // Check if user exists
     if (await User.findOne({ email })) {
@@ -41,15 +28,14 @@ const signup = async (req, res) => {
     // Get address from private key
     const web3 = new Web3();
     const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-    const walletAddress = account.address;
 
-    // Create new user (password hashing done in model)
+    // Create new user
     const user = new User({
       username,
       email,
       password,
-      privateKey, // Storing for demo - NEVER do this in production!
-      walletAddress
+      privateKey, // DEMO ONLY - THIS IS UNSAFE IN PRODUCTION
+      publicAddress: account.address
     });
 
     await user.save();
@@ -67,9 +53,8 @@ const signup = async (req, res) => {
       user: { 
         email, 
         username, 
-        walletAddress,
+        publicAddress: account.address,
         // Never expose private key in response
-        // even in demo, this is just for illustration
       } 
     });
 
@@ -77,7 +62,8 @@ const signup = async (req, res) => {
     console.error('Registration error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message || 'Server error during registration' 
+      message: 'Server error during registration',
+      demoWarning: "This implementation stores private keys - NEVER do this in production"
     });
   }
 };

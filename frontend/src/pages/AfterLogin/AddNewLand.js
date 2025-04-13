@@ -1,421 +1,351 @@
-import React, { Component } from 'react';
-import { TextField, Button, Container, Checkbox, FormControlLabel } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { 
+  Container,
+  TextField,
+  Button,
+  FormControlLabel,
+  Checkbox,
+  Typography,
+  Box,
+  Grid,
+  Divider
+} from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import Land from '../../abis/LandRegistry.json';
-import axios from 'axios';
-import { create } from 'ipfs-http-client'; 
-import Web3 from 'web3';
+import { ethers } from 'ethers';
+import LandRegistry from '../../abis/LandRegistry.json';
+import { useNavigate } from 'react-router-dom';
 
-const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' });  // Initialize IPFS client
+const AddNewLand = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    pan: '',
+    occupation: '',
+    state: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    contact: '',
+    laddress: '',
+    lstate: '',
+    lcity: '',
+    lamount: '',
+    larea: '',
+    lpostalCode: ''
+  });
+  const [checked, setChecked] = useState(false);
+  const [account, setAccount] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-class Register extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      name: '',
-      email: '',
-      pan: '',
-      occupation: '',
-      state: '',
-      address: '',
-      postalCode: '',
-      city: '',
-      contact: '',
-      laddress: '',
-      lstate: '',
-      lcity: '',
-      lamount: '',
-      larea: '',
-      lpostalCode: '',
-      ipfsHash: '',
-      checked: false,
-      buffer: null,
-      images: [],
-      image: [],
-      account: null,
-      landList: null,
-      propertyId: null,
-    };
-  }
+  useEffect(() => {
+    const initialize = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          setAccount(address);
 
-  componentDidMount = async () => {
-    const web3 = new Web3(
-      Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
-    );
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        this.setState({ account: accounts[0] });
-        window.ethereum.on('accountsChanged', (accounts) => {
-          this.setState({ account: accounts[0] });
-        });
-      } catch (error) {
-        window.alert('Please connect your Trust Wallet');
-      }
-    } else {
-      window.alert('Please install Trust Wallet');
-    }
+          const landContract = new ethers.Contract(
+            process.env.REACT_APP_CONTRACT_ADDRESS,
+            LandRegistry.abi,
+            signer
+          );
+          setContract(landContract);
 
-    const networkId = await web3.eth.net.getId();
-    const LandData = Land.networks[networkId];
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address);
-      this.setState({ landList });
-    } else {
-      window.alert('Land contract not deployed to detected network.');
-    }
-
-    if (!window.localStorage.getItem('authenticated') || window.localStorage.getItem('authenticated') === 'false') {
-      this.props.history.push('/login');
-    }
-  };
-
-  validateEmail = (emailField) => {
-    var reg = /^([A-Za-z0-9_])+([A-Za-z0-9_])+([A-Za-z]{2,4})$/;
-    return reg.test(emailField);
-  };
-
-  handleChange = (name) => (event) => {
-    this.setState({ [name]: event.target.value });
-  };
-
-  handleChangeCheckbox = (event) => {
-    this.setState({ checked: !this.state.checked });
-  };
-
-  async propertyID(laddress, lamount) {
-    const propertyId = await this.state.landList.methods.computeId(laddress, lamount).call();
-    this.setState({ propertyId });
-  }
-
-  async Register(data, account, laddress, lamount) {
-    var buf = Buffer.from(JSON.stringify(data));
-    const result = await ipfs.add(buf);
-    ipfs.files.add(buf, (error, result) => {
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      this.state.landList.methods
-        .Registration(
-          account,
-          result[0].hash,
-          laddress,
-          lamount,
-          this.state.propertyId,
-          'Not Approved',
-          'Not yet approved by the govt.',
-        )
-        .send({
-          from: this.state.account,
-          gas: 1000000,
-        })
-        .on('receipt', function (receipt) {
-          if (!receipt) {
-            console.log('Transaction Failed!!!');
-          } else {
-            console.log('Transaction successful');
-            window.alert('Transaction successful');
-            window.location = '/dashboard';
+          // Check authentication
+          if (!localStorage.getItem('authenticated')) {
+            navigate('/login');
           }
-        });
-      this.setState({ ipfsHash: result[0].hash });
-    });
-  }
-
-  handleSubmit = async () => {
-    const account = this.state.account;
-    const laddress = this.state.laddress;
-    const lamount = this.state.lamount;
-
-    let data = {
-      name: this.state.name,
-      email: this.state.email,
-      contact: this.state.contact,
-      pan: this.state.pan,
-      address: this.state.address,
-      state: this.state.state,
-      city: this.state.city,
-      postalCode: this.state.postalCode,
-      occupation: this.state.occupation,
-      laddress: this.state.laddress,
-      lstate: this.state.lstate,
-      lcity: this.state.lcity,
-      lpostalCode: this.state.lpostalCode,
-      larea: this.state.larea,
-      document: this.state.buffer,
-      images: this.state.image,
-      lamount: this.state.lamount,
+        } catch (error) {
+          console.error("Initialization error:", error);
+        }
+      } else {
+        alert("Please install MetaMask or another Web3 wallet");
+      }
     };
 
-    if (data) {
-      try {
-        const res = await axios.post('http://localhost:4000/owner', data);
-        this.propertyID(laddress, lamount);
-        this.Register(data, account, laddress, lamount);
-      } catch (error) {
-        console.log('error:', error);
-      }
-    } else {
-      window.alert('All fields are required.');
+    initialize();
+  }, [navigate]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Generate property ID
+      const propertyId = await contract.computeId(formData.laddress, formData.lamount);
+
+      // Prepare land data
+      const landData = {
+        ...formData,
+        status: 'Pending',
+        message: 'Waiting for government approval'
+      };
+
+      // Call contract method
+      const tx = await contract.Registration(
+        account,
+        JSON.stringify(landData), // In production, you'd store this on IPFS
+        formData.laddress,
+        formData.lamount,
+        propertyId,
+        'Not Approved',
+        'Pending government approval',
+        { gasLimit: 1000000 }
+      );
+
+      await tx.wait();
+      alert('Land registration submitted successfully!');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error("Registration error:", error);
+      alert('Error submitting land registration');
+    } finally {
+      setLoading(false);
     }
   };
 
-  onChange = async (e) => {
-    const file = e.target.files[0];
-    const data = new FormData();
-    data.append('testImage', file);
+  return (
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ 
+        backgroundColor: 'background.paper',
+        borderRadius: 2,
+        boxShadow: 3,
+        p: 4
+      }}>
+        <Typography variant="h4" component="h1" sx={{ 
+          textAlign: 'center',
+          fontWeight: 'bold',
+          mb: 4
+        }}>
+          Register New Land
+        </Typography>
 
-    const res = await axios.post('http://localhost:4000/images', data);
-    console.log(res);
-  };
+        <form onSubmit={handleSubmit}>
+          <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+            Owner Details
+          </Typography>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Owner's Name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Contact Number"
+                name="contact"
+                value={formData.contact}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="PAN Number"
+                name="pan"
+                value={formData.pan}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Occupation"
+                name="occupation"
+                value={formData.occupation}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Address"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="State"
+                name="state"
+                value={formData.state}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="City"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Postal Code"
+                name="postalCode"
+                value={formData.postalCode}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+          </Grid>
 
-  fileSelectedHandler = async (e) => {
-    const data = new FormData();
-    data.append('testImage', e.target.files[0]);
+          <Divider sx={{ my: 4 }} />
 
-    const res = await axios.post('http://localhost:4000/images', data);
-    console.log(res);
-    if (res.status === 200) {
-      const img = await axios.get('http://localhost:4000/images');
-      console.log(img);
-    }
-  };
+          <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+            Land Details
+          </Typography>
 
-  render() {
-    return (
-      <Container style={{ marginTop: '30px' }}>
-        <h1 style={{ textAlign: 'center', fontWeight: '600' }}>Owner's Details</h1>
-        <div className="input">
-          <TextField
-            id="standard-full-width"
-            type="name"
-            label="Owner's Name"
-            placeholder="Enter Owner's Name"
-            fullWidth
-            value={this.state.name}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('name')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="account"
-            label="Private Key"
-            fullWidth
-            value={this.state.account}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            disabled
-          />
-          <TextField
-            id="standard-full-width"
-            type="email"
-            label="Owner's Email ID"
-            placeholder="Enter Owner's Email ID"
-            fullWidth
-            value={this.state.email}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('email')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="contact"
-            label="Owner's Contact Number"
-            placeholder="Enter Owner's Contact Number"
-            fullWidth
-            value={this.state.contact}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('contact')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="pan"
-            label="PAN Number"
-            placeholder="Enter Owner's PAN Number"
-            fullWidth
-            value={this.state.pan}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('pan')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="occupation"
-            label="Occupation"
-            placeholder="Enter Owner's Occupation"
-            fullWidth
-            value={this.state.occupation}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('occupation')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="address"
-            label="Owner's Permanent Address"
-            placeholder="Enter Owner's Permanent Address"
-            fullWidth
-            value={this.state.address}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('address')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="State"
-            label="State"
-            placeholder="Enter Your State"
-            fullWidth
-            value={this.state.state}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('state')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="city"
-            label="City"
-            placeholder="Enter Your City"
-            fullWidth
-            value={this.state.city}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('city')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="postalCode"
-            label="Postal Code"
-            placeholder="Enter Your Postal Code"
-            fullWidth
-            value={this.state.postalCode}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('postalCode')}
-          />
-        </div>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Land Address"
+                name="laddress"
+                value={formData.laddress}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="State"
+                name="lstate"
+                value={formData.lstate}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="City"
+                name="lcity"
+                value={formData.lcity}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Postal Code"
+                name="lpostalCode"
+                value={formData.lpostalCode}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Area (sq meters)"
+                name="larea"
+                type="number"
+                value={formData.larea}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Total Amount (ETH)"
+                name="lamount"
+                type="number"
+                value={formData.lamount}
+                onChange={handleChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+          </Grid>
 
-        <h1 style={{ textAlign: 'center', fontWeight: '600', marginTop: '30px' }}>Land Details</h1>
-        <div className="input">
-          <TextField
-            id="standard-full-width"
-            type="address"
-            label="Address"
-            placeholder="Enter Land's Identification Mark"
-            fullWidth
-            value={this.state.laddress}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('laddress')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="State"
-            label="State"
-            placeholder="Enter State"
-            fullWidth
-            value={this.state.lstate}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('lstate')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="city"
-            label="City"
-            placeholder="Enter City"
-            fullWidth
-            value={this.state.lcity}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('lcity')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="postalCode"
-            label="Postal Code"
-            placeholder="Enter Postal Code"
-            fullWidth
-            value={this.state.lpostalCode}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('lpostalCode')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="area"
-            label="Area (in square meters)"
-            placeholder="Enter Area"
-            fullWidth
-            value={this.state.larea}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('larea')}
-          />
-          <TextField
-            id="standard-full-width"
-            type="amount"
-            label="Total Amount"
-            placeholder="Enter Total Amount"
-            fullWidth
-            value={this.state.lamount}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            onChange={this.handleChange('lamount')}
-          />
-          <label htmlFor="file">Upload Legal Documents</label>
-          <br />
-          <input ref="file" type="file" name="user[image]" onChange={this.onChange} />
-          <label htmlFor="file">Upload Pictures of Land/Plot</label>
-          <br />
-          <input
-            ref="file"
-            type="file"
-            name="user[image]"
-            multiple="true"
-            onChange={this.fileSelectedHandler}
-          />
-        </div>
-
-        <FormControlLabel
-          style={{ marginTop: '20px', float: 'center' }}
-          control={
-            <Checkbox
-              checked={this.state.checked}
-              onChange={this.handleChangeCheckbox}
-              name="checked"
-              color="primary"
+          <Box sx={{ mt: 3 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={checked}
+                  onChange={(e) => setChecked(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="I agree to the Terms and Conditions"
             />
-          }
-          label="I agree to the Terms and Conditions"
-        />
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          {this.state.checked ? (
-            <Button
-              variant="contained"
-              color="primary"
-              endIcon={<SendIcon />}
-              onClick={this.handleSubmit}
-            >
-              Submit
-            </Button>
-          ) : (
-            <Button variant="contained" color="primary" endIcon={<SendIcon />} disabled>
-              Submit
-            </Button>
-          )}
-        </div>
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          Already Registered?{' '}
-          <a href="/dashboard">Check Status</a>
-        </div>
-      </Container>
-    );
-  }
-}
+          </Box>
 
-export default Register;
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              endIcon={<SendIcon />}
+              disabled={!checked || loading}
+              sx={{ px: 4 }}
+            >
+              {loading ? 'Submitting...' : 'Submit Registration'}
+            </Button>
+          </Box>
+        </form>
+      </Box>
+    </Container>
+  );
+};
+
+export default AddNewLand;

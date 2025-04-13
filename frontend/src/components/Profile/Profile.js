@@ -1,99 +1,178 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Grid } from '@mui/material';
-import profile from '../../assets/images/avatar.png';
-import MailIcon from '@mui/icons-material/Mail';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import Web3 from 'web3';
-import Land from '../../abis/LandRegistry.json'; // Import the ABI here
+import { 
+  Container, 
+  Grid, 
+  Typography, 
+  Box,
+  Avatar,
+  CircularProgress
+} from '@mui/material';
+import { 
+  Mail as MailIcon,
+  VpnKey as VpnKeyIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon 
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { ethers } from 'ethers';
+import LandRegistry from '../../abis/LandRegistry.json';
 
 const Profile = () => {
-  const [account, setAccount] = useState('');
-  const [balance, setBalance] = useState('');
-  const [uname, setUname] = useState('');
-  const [uemail, setUemail] = useState('');
-  const [exist, setExist] = useState(false);
-  const navigate = useNavigate(); // Use useNavigate hook
+  const [state, setState] = useState({
+    account: '',
+    balance: '',
+    name: '',
+    email: '',
+    exists: false,
+    isLoading: true,
+    error: null
+  });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const loadData = async () => {
-      if (window.ethereum) {
-        const web3 = new Web3(window.ethereum);
-        await window.ethereum.enable();
+    const loadProfileData = async () => {
+      try {
+        if (!window.ethereum) {
+          throw new Error('Please install MetaMask or another Web3 wallet');
+        }
 
-        const accounts = await web3.eth.getAccounts();
-        if (!accounts || accounts.length === 0) {
-          alert('No wallet account found.');
+        // Connect to Hardhat local node
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        
+        // Get balance
+        const balanceWei = await provider.getBalance(address);
+        const balanceEth = ethers.formatEther(balanceWei);
+
+        // Initialize contract
+        const landList = new ethers.Contract(
+          process.env.REACT_APP_CONTRACT_ADDRESS,
+          LandRegistry.abi,
+          signer
+        );
+
+        // Get user details from contract
+        const user = await landList.getUser(address);
+
+        // Check authentication
+        const auth = localStorage.getItem('authenticated');
+        if (!auth || auth !== 'true') {
+          navigate('/login');
           return;
         }
 
-        const account = accounts[0];
-        const balanceWei = await web3.eth.getBalance(account);
-        const balanceEth = web3.utils.fromWei(balanceWei, 'ether');
+        setState({
+          account: address,
+          balance: balanceEth,
+          name: user[1] || 'Not set',
+          email: user[3] || 'Not set',
+          exists: user[6],
+          isLoading: false,
+          error: null
+        });
 
-        setAccount(account);
-        setBalance(balanceEth);
-
-        const networkId = await web3.eth.net.getId();
-        const LandData = Land.networks[networkId];
-        if (LandData) {
-          const landList = new web3.eth.Contract(Land.abi, LandData.address);
-
-          const user = await landList.methods.getUser(account).call();
-          setUname(user[1]);
-          setUemail(user[3]);
-          setExist(user[6]);
-        } else {
-          window.alert('Smart contract not deployed to the detected network.');
-        }
-
-        const auth = window.localStorage.getItem('authenticated');
-        if (!auth || auth !== 'true') {
-          navigate('/login'); // Use navigate hook for redirection
-        }
-      } else {
-        alert('Please install Trust Wallet.');
+      } catch (error) {
+        console.error('Profile load error:', error);
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error.message
+        }));
       }
     };
 
-    loadData();
+    loadProfileData();
   }, [navigate]);
 
+  if (state.isLoading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh'
+      }}>
+        <CircularProgress size={60} />
+      </Box>
+    );
+  }
+
+  if (state.error) {
+    return (
+      <Container sx={{ mt: 8, textAlign: 'center' }}>
+        <Typography variant="h6" color="error">
+          {state.error}
+        </Typography>
+      </Container>
+    );
+  }
+
   return (
-    <div className="profile-bg">
-      <Container>
-        <div className="m-t-180">
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={4}>
-              <div>
-                <img className="profile-img" src={profile} alt="Profile" />
-              </div>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(to bottom, #f5f7fa 0%, #c3cfe2 100%)',
+      py: 8
+    }}>
+      <Container maxWidth="md">
+        <Box sx={{
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          boxShadow: 3,
+          p: 4,
+          mt: 8
+        }}>
+          <Grid container spacing={4} alignItems="center">
+            <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Avatar
+                src="/static/images/avatar.png" // Replace with your avatar path
+                sx={{
+                  width: 200,
+                  height: 200,
+                  border: '4px solid',
+                  borderColor: 'primary.main'
+                }}
+              />
             </Grid>
             <Grid item xs={12} md={8}>
-              <div className="profile-text">
-                <div className="profile-h">{uname}</div>
-                <div style={{ marginTop: '10px' }}>
-                  <MailIcon style={{ marginTop: '-10px' }} />
-                  {'  '}
-                  <span className="profile-t">{uemail}</span>
-                </div>
-                <div style={{ marginTop: '10px' }}>
-                  <VpnKeyIcon style={{ marginTop: '-10px' }} />
-                  {'  '}
-                  <span className="profile-t">{account}</span>
-                </div>
-                <div style={{ marginTop: '10px' }}>
-                  <AccountBalanceWalletIcon style={{ marginTop: '-10px' }} />
-                  {'  '}
-                  <span className="profile-t">{balance} ETH</span>
-                </div>
-              </div>
+              <Box sx={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }}>
+                <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+                  {state.name}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MailIcon color="primary" />
+                  <Typography variant="body1">
+                    {state.email}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <VpnKeyIcon color="primary" />
+                  <Typography variant="body1" sx={{ 
+                    wordBreak: 'break-all',
+                    fontFamily: 'monospace'
+                  }}>
+                    {state.account}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AccountBalanceWalletIcon color="primary" />
+                  <Typography variant="body1">
+                    {parseFloat(state.balance).toFixed(4)} ETH
+                  </Typography>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
-        </div>
+        </Box>
       </Container>
-    </div>
+    </Box>
   );
 };
 

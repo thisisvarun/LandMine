@@ -1,184 +1,276 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, AppBar, Toolbar, Typography } from '@mui/material';
-import { makeStyles } from '@mui/styles';
-
-const useStyles = makeStyles(() => ({
-  grow: {
-    flexGrow: 1,
-  },
-  topBar: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '10px 20px',
-    background: '#122404',
-    position: 'fixed',
-    width: '100%',
-    top: 0,
-    zIndex: 1000,
-  },
-  connectBtn: {
-    background: '#ff9800',
-    color: '#fff',
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: "'Roboto Condensed', sans-serif",
-    fontSize: '16px',
-    '&:hover': {
-      background: '#fb8c00',
-    },
-  },
-  navWrap: {
-    background: '#122404 !important',
-    padding: '10px 0',
-    position: 'fixed',
-    top: '60px',
-    width: '100%',
-    zIndex: 999,
-  },
-  navList: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    width: '100%',
-  },
-  navItem: {
-    margin: '0 20px',
-  },
-  navLink: {
-    color: '#fff',
-    textDecoration: 'none',
-    fontFamily: "'Roboto Condensed', sans-serif",
-    fontSize: '18px',
-    '&:hover': {
-      color: '#ff9800',
-    },
-  },
-  logoutBtn: {
-    background: '#d9534f',
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: "'Roboto Condensed', sans-serif",
-    fontSize: '16px',
-    color: '#fff',
-    '&:hover': {
-      background: '#c9302c',
-    },
-  },
-}));
-
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Button, 
+  Box,
+  List,
+  ListItem
+} from '@mui/material';
+import { ethers } from 'ethers';
 
 const Header = () => {
   const [authenticated, setAuthenticated] = useState(false);
   const [isGovt, setIsGovt] = useState(false);
   const [account, setAccount] = useState(null);
-
-  const classes = useStyles();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const auth = window.localStorage.getItem('authenticated') === 'true';
-    const govt = window.localStorage.getItem('govtAuthenticated') === 'true';
-    setAuthenticated(auth);
-    setIsGovt(govt);
+    const checkAuth = () => {
+      const auth = localStorage.getItem('authenticated') === 'true';
+      const govt = localStorage.getItem('govtAuthenticated') === 'true';
+      setAuthenticated(auth);
+      setIsGovt(govt);
+    };
 
-    if (window.ethereum) {
-      const fetchAccount = async () => {
+    const checkWalletConnection = async () => {
+      if (window.ethereum) {
         try {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const accounts = await provider.listAccounts();
           if (accounts.length > 0) {
-            setAccount(accounts[0]);
+            setAccount(accounts[0].address);
           }
         } catch (error) {
-          console.error("Error getting Trust Wallet account:", error);
+          console.error("Error checking wallet connection:", error);
         }
-      };
+      }
+    };
 
-      fetchAccount();
+    checkAuth();
+    checkWalletConnection();
 
-      window.ethereum.on('accountsChanged', (accounts) => {
-        setAccount(accounts[0] || null);
-      });
-    }
+    // Handle account changes
+    const handleAccountsChanged = (accounts) => {
+      setAccount(accounts[0] || null);
+      if (!accounts[0]) {
+        localStorage.removeItem('authenticated');
+        localStorage.removeItem('govtAuthenticated');
+        setAuthenticated(false);
+        setIsGovt(false);
+      }
+    };
+
+    window.ethereum?.on('accountsChanged', handleAccountsChanged);
+
+    return () => {
+      window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+    };
   }, []);
 
-  const connectTrustWallet = async () => {
+  const connectWallet = async () => {
     if (window.ethereum) {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setAccount(accounts[0]);
-        window.localStorage.setItem('web3account', accounts[0]);
-        window.localStorage.setItem('authenticated', 'true');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        
+        setAccount(address);
+        localStorage.setItem('web3account', address);
+        
+        // For demo purposes - in production, you'd verify actual roles
+        const isGovernmentUser = address === process.env.REACT_APP_GOVT_ADDRESS;
+        
+        if (isGovernmentUser) {
+          localStorage.setItem('govtAuthenticated', 'true');
+          setIsGovt(true);
+          navigate('/dashboard_govt');
+        } else {
+          localStorage.setItem('authenticated', 'true');
+          setAuthenticated(true);
+          navigate('/dashboard');
+        }
       } catch (error) {
-        console.error("Error connecting to Trust Wallet:", error);
+        console.error("Error connecting wallet:", error);
       }
     } else {
-      alert("Please install Trust Wallet or MetaMask to connect.");
+      alert("Please install MetaMask or another Web3 wallet");
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('authenticated');
+    localStorage.removeItem('govtAuthenticated');
+    localStorage.removeItem('web3account');
+    setAuthenticated(false);
+    setIsGovt(false);
+    setAccount(null);
+    navigate('/');
+  };
+
   return (
-    <AppBar position="fixed" className={classes.navWrap}>
-      <Toolbar className={classes.navList}>
-        <div className={classes.grow}>
-          <ul className={classes.navList}>
-            <li className={classes.navItem}><Link to="/" className={classes.navLink}>Home</Link></li>
-  
+    <AppBar position="fixed" sx={{ 
+      backgroundColor: 'primary.dark',
+      boxShadow: 3,
+      zIndex: (theme) => theme.zIndex.drawer + 1
+    }}>
+      <Toolbar sx={{ 
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        py: 1
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Typography 
+            variant="h6" 
+            component={Link} 
+            to="/" 
+            sx={{ 
+              color: 'common.white',
+              textDecoration: 'none',
+              mr: 4,
+              fontWeight: 'bold'
+            }}
+          >
+            Land Registry
+          </Typography>
+
+          <List sx={{ display: 'flex', p: 0 }}>
             {!authenticated && !isGovt && (
               <>
-                <li className={classes.navItem}><Link to="/login" className={classes.navLink}>Login</Link></li>
-                <li className={classes.navItem}><Link to="/signup" className={classes.navLink}>Sign Up</Link></li>
+                <ListItem sx={{ width: 'auto' }}>
+                  <Button 
+                    component={Link} 
+                    to="/login" 
+                    sx={{ 
+                      color: 'common.white',
+                      '&:hover': { color: 'secondary.main' }
+                    }}
+                  >
+                    Login
+                  </Button>
+                </ListItem>
+                <ListItem sx={{ width: 'auto' }}>
+                  <Button 
+                    component={Link} 
+                    to="/signup" 
+                    sx={{ 
+                      color: 'common.white',
+                      '&:hover': { color: 'secondary.main' }
+                    }}
+                  >
+                    Sign Up
+                  </Button>
+                </ListItem>
               </>
             )}
-  
-            {authenticated && !isGovt && (
+
+            {authenticated && (
               <>
-                <li className={classes.navItem}><Link to="/dashboard" className={classes.navLink}>Dashboard</Link></li>
-                <li className={classes.navItem}><Link to="/profile" className={classes.navLink}>Profile</Link></li>
-                <li className={classes.navItem}>
-                  <Button className={classes.logoutBtn} onClick={() => {
-                    window.localStorage.setItem('authenticated', 'false');
-                    window.localStorage.removeItem('web3account');
-                    setAuthenticated(false);
-                    setAccount(null);
-                  }}>Logout</Button>
-                </li>
+                <ListItem sx={{ width: 'auto' }}>
+                  <Button 
+                    component={Link} 
+                    to="/dashboard" 
+                    sx={{ 
+                      color: 'common.white',
+                      '&:hover': { color: 'secondary.main' }
+                    }}
+                  >
+                    Dashboard
+                  </Button>
+                </ListItem>
+                <ListItem sx={{ width: 'auto' }}>
+                  <Button 
+                    component={Link} 
+                    to="/profile" 
+                    sx={{ 
+                      color: 'common.white',
+                      '&:hover': { color: 'secondary.main' }
+                    }}
+                  >
+                    Profile
+                  </Button>
+                </ListItem>
               </>
             )}
-  
+
             {isGovt && (
-              <>
-                <li className={classes.navItem}><Link to="/dashboard_govt" className={classes.navLink}>Govt Dashboard</Link></li>
-                <li className={classes.navItem}>
-                  <Button className={classes.logoutBtn} onClick={() => {
-                    window.localStorage.setItem('govtAuthenticated', 'false');
-                    window.localStorage.removeItem('web3account');
-                    setIsGovt(false);
-                    setAccount(null);
-                  }}>Logout</Button>
-                </li>
-              </>
+              <ListItem sx={{ width: 'auto' }}>
+                <Button 
+                  component={Link} 
+                  to="/dashboard_govt" 
+                  sx={{ 
+                    color: 'common.white',
+                    '&:hover': { color: 'secondary.main' }
+                  }}
+                >
+                  Govt Dashboard
+                </Button>
+              </ListItem>
             )}
-  
-            <li className={classes.navItem}><Link to="/guide" className={classes.navLink}>FAQ</Link></li>
-          </ul>
-        </div>
-  
-        {!authenticated && !isGovt && (
-          <Button className={classes.connectBtn} onClick={connectTrustWallet}>
-            Connect with Trust Wallet
-          </Button>
-        )}
+
+            <ListItem sx={{ width: 'auto' }}>
+              <Button 
+                component={Link} 
+                to="/guide" 
+                sx={{ 
+                  color: 'common.white',
+                  '&:hover': { color: 'secondary.main' }
+                }}
+              >
+                FAQ
+              </Button>
+            </ListItem>
+          </List>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {account && (
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mr: 2,
+                fontFamily: 'monospace',
+                color: 'common.white',
+                maxWidth: '120px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {`${account.substring(0, 6)}...${account.substring(38)}`}
+            </Typography>
+          )}
+
+          {!authenticated && !isGovt ? (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={connectWallet}
+              sx={{
+                fontWeight: 'bold',
+                textTransform: 'none',
+                px: 3,
+                py: 1
+              }}
+            >
+              {account ? 'Connected' : 'Connect Wallet'}
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleLogout}
+              sx={{
+                color: 'common.white',
+                borderColor: 'common.white',
+                '&:hover': {
+                  backgroundColor: 'error.main',
+                  borderColor: 'error.main'
+                },
+                textTransform: 'none',
+                px: 3,
+                py: 1
+              }}
+            >
+              Logout
+            </Button>
+          )}
+        </Box>
       </Toolbar>
     </AppBar>
   );
-  
 };
 
 export default Header;

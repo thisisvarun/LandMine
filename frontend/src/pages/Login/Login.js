@@ -1,14 +1,23 @@
 import React, { useState, useContext } from 'react';
-import { TextField, Button, Container, CircularProgress } from '@mui/material';
+import { 
+  TextField, 
+  Button, 
+  Container, 
+  Typography,
+  Box,
+  Alert,
+  CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup
+} from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../providers/AuthProvider';
 import { Web3Context } from '../../providers/Web3Provider';
-import './Login.css'; // Extracted styles to CSS file
 
 const Login = () => {
-  const [isGovtLogin, setIsGovtLogin] = useState(false);
+  const [loginType, setLoginType] = useState('user'); // 'user' or 'government'
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,130 +25,142 @@ const Login = () => {
   const { account } = useContext(Web3Context);
   const navigate = useNavigate();
 
-  const handleLoginTypeChange = () => {
-    setIsGovtLogin(!isGovtLogin);
-    setIdentifier('');
-    setPassword('');
+  const handleLoginTypeChange = (event, newType) => {
+    if (newType !== null) {
+      setLoginType(newType);
+      setIdentifier('');
+      setPassword('');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
-    if (!identifier || !password) {
-      toast.error('All fields are required');
-      setLoading(false);
-      return;
-    }
-
+  
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      console.log('Attempting to connect to:', apiUrl);
+  
+      // First test basic connection
+      const healthCheck = await fetch(`${apiUrl}/health`);
+      if (!healthCheck.ok) throw new Error('Backend not responding');
+  
+      // Proceed with login
+      const response = await fetch(`${apiUrl}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          [isGovtLogin ? 'username' : 'email']: identifier,
+          [loginType === 'government' ? 'username' : 'email']: identifier,
           password,
-          isGovernment: isGovtLogin,
+          isGovernment: loginType === 'government',
           walletAddress: account
-        }),
-        credentials: 'include' // For httpOnly cookies if using them
+        })
       });
-
+  
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      // Update global auth state
-      setAuthState({
-        isAuthenticated: true,
-        isGovt: isGovtLogin,
-        isLoading: false
-      });
-
-      // Navigate based on role
-      navigate(isGovtLogin ? '/dashboard_govt' : '/dashboard');
+      if (!response.ok) throw new Error(data.message || 'Login failed');
+  
+      // Successful login handling...
       
-      toast.success(`Welcome ${data.user?.username || ''}`);
-
     } catch (err) {
-      console.error('Login error:', err);
-      toast.error(err.message || 'Authentication failed');
+      console.error('Connection error:', err);
+      toast.error(
+        err.message.includes('Failed to fetch')
+          ? 'Backend server unavailable. Please: 1) Check backend is running, 2) Verify port 5000 is open, 3) Ensure no CORS issues'
+          : err.message
+      );
     } finally {
       setLoading(false);
     }
   };
-
   return (
-    <div className="login-container">
-      <Container className="login-form">
-        <h2 className="login-title">Login</h2>
+    <Container maxWidth="sm" sx={{ 
+      mt: 8,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      paddingTop: 10
+    }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
+        {loginType === 'government' ? 'Government Portal' : 'User Login'}
+      </Typography>
 
-        <div className="login-toggle">
-          <Button
-            variant={!isGovtLogin ? 'contained' : 'outlined'}
-            color="primary"
-            onClick={handleLoginTypeChange}
-          >
+      <Alert severity="info" sx={{ width: '100%', mb: 3 }}>
+        {loginType === 'government' 
+          ? 'Government officials login here' 
+          : 'Please login with your registered email'}
+      </Alert>
+
+      <Box sx={{ width: '100%', mb: 3 }}>
+        <ToggleButtonGroup
+          value={loginType}
+          exclusive
+          onChange={handleLoginTypeChange}
+          fullWidth
+        >
+          <ToggleButton value="user" sx={{ py: 1.5 }}>
             User Login
-          </Button>
-          <Button
-            variant={isGovtLogin ? 'contained' : 'outlined'}
-            color="primary"
-            onClick={handleLoginTypeChange}
-            className="govt-login-btn"
-          >
+          </ToggleButton>
+          <ToggleButton value="government" sx={{ py: 1.5 }}>
             Government Login
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      <Box 
+        component="form" 
+        onSubmit={handleSubmit} 
+        sx={{ 
+          width: '100%',
+          mt: 1,
+          '& .MuiTextField-root': { mb: 2 }
+        }}
+      >
+        <TextField
+          label={loginType === 'government' ? 'Username' : 'Email'}
+          variant="outlined"
+          fullWidth
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          required
+        />
+
+        <TextField
+          label="Password"
+          type="password"
+          variant="outlined"
+          fullWidth
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          size="large"
+          endIcon={loading ? <CircularProgress size={24} /> : <SendIcon />}
+          disabled={loading}
+          sx={{ mt: 1, py: 1.5 }}
+        >
+          {loading ? 'Logging in...' : 'Login'}
+        </Button>
+      </Box>
+
+      {loginType === 'user' && (
+        <Typography variant="body2" sx={{ mt: 3 }}>
+          Don't have an account?{' '}
+          <Button 
+            href="/signup" 
+            color="primary"
+            sx={{ textTransform: 'none' }}
+          >
+            Sign up here
           </Button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <TextField
-            label={isGovtLogin ? 'Username' : 'Email'}
-            fullWidth
-            value={identifier}
-            margin="normal"
-            onChange={(e) => setIdentifier(e.target.value)}
-            variant="outlined"
-            className="login-input"
-          />
-
-          <TextField
-            label="Password"
-            type="password"
-            fullWidth
-            value={password}
-            margin="normal"
-            onChange={(e) => setPassword(e.target.value)}
-            variant="outlined"
-            className="login-input"
-          />
-
-          <div className="login-submit">
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              endIcon={loading ? <CircularProgress size={24} /> : <SendIcon />}
-              disabled={loading}
-              fullWidth
-            >
-              {loading ? 'Authenticating...' : 'Login'}
-            </Button>
-          </div>
-        </form>
-
-        {!isGovtLogin && (
-          <div className="login-signup-link">
-            Don't have an account?{' '}
-            <a href="/signup" className="signup-link">
-              Sign Up
-            </a>
-          </div>
-        )}
-      </Container>
-    </div>
+        </Typography>
+      )}
+    </Container>
   );
 };
 

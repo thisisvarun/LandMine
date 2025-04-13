@@ -1,22 +1,22 @@
-import React, { Component } from 'react';
-import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import { styled } from '@mui/system';
-import Button from '@mui/material/Button';
-import Land from '../../abis/LandRegistry.json';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
+import React, { useState, useEffect } from 'react';
+import { 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Box,
+} from '@mui/material';
 import Slide from '@mui/material/Slide';
-import axios from 'axios';
-import Web3 from 'web3';
+import { ethers } from 'ethers';
+import LandRegistry from '../../abis/LandRegistry.json';
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -24,203 +24,235 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 
 const columns = [
   { id: 'property', label: 'Property ID', minWidth: 100 },
-  { id: 'name', label: 'Full Name', minWidth: 100 },
-  { id: 'laddress', label: 'Land Details', minWidth: 170 },
+  { id: 'name', label: 'Owner Name', minWidth: 120 },
+  { id: 'laddress', label: 'Land Address', minWidth: 180 },
   { id: 'lstate', label: 'State', minWidth: 100 },
   { id: 'lcity', label: 'City', minWidth: 100 },
-  { id: 'lamount', label: 'Total Amount (in Rs)', minWidth: 100 },
-  { id: 'document', label: 'Documents', minWidth: 100 },
-  { id: 'images', label: 'Land Images', minWidth: 100 },
-  { id: 'isGovtApproved', label: 'Status of Land Approval (by the Govt.)', minWidth: 100 },
-  { id: 'isAvailable', label: 'Land Availability Status', minWidth: 100 },
+  { id: 'lamount', label: 'Price (ETH)', minWidth: 100 },
+  { id: 'document', label: 'Documents', minWidth: 120 },
+  { id: 'images', label: 'Images', minWidth: 100 },
+  { id: 'isGovtApproved', label: 'Approval Status', minWidth: 140 },
+  { id: 'isAvailable', label: 'Availability', minWidth: 120 },
 ];
 
-const styles = {
-  root: {
-    width: '100%',
-  },
-};
+const BuyerTable = ({ assetList }) => {
+  const [state, setState] = useState({
+    images: [],
+    openDialog: false,
+    account: null,
+    contract: null,
+    loading: false
+  });
 
-class BuyerTable extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      assetList: [],
-      isLoading: true,
-      images: [],
-      open1: false,
-      account: null,
-    };
-  }
+  useEffect(() => {
+    const initialize = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          
+          const contract = new ethers.Contract(
+            process.env.REACT_APP_CONTRACT_ADDRESS,
+            LandRegistry.abi,
+            signer
+          );
 
-  componentDidMount = async () => {
-    if (window.ethereum) {
-      const web3 = new Web3(window.ethereum)
-      await window.ethereum.request({ method: 'eth_requestAccounts' })
-      const accounts = await web3.eth.getAccounts()
-      this.setState({ account: accounts[0] })
-      const networkId = await web3.eth.net.getId()
-      const LandData = Land.networks[networkId]
-      if (LandData) {
-        const landList = new web3.eth.Contract(Land.abi, LandData.address)
-        this.setState({ landList })
-      } else {
-        window.alert('Token contract not deployed to detected network.')
-      }
-    } else {
-      window.alert('Please install MetaMask or Trust Wallet.')
-    }
-  };
-
-  handleAccept = async (id, email) => {
-    await this.state.landList.methods.requstToLandOwner(id).send({
-      from: this.state.account,
-      gas: 1000000,
-    });
-    let data = {
-      lemail: email,
-      subject: `${this.state.uname} has requested to buy`,
-      message: `${this.state.uname} has requested to buy the property. Please check your account for more details.`,
-    };
-    await axios
-      .post('http://localhost:4000/send_mail', data)
-      .then((response) => {
-        if (response.status === 200) {
-          alert('Message Sent.');
-        } else {
-          alert('Message failed to send.');
+          setState(prev => ({
+            ...prev,
+            account: address,
+            contract
+          }));
+        } catch (error) {
+          console.error("Initialization error:", error);
         }
-      });
-    window.location.reload();
-  };
+      }
+    };
 
-  handleBuy = async (id, amount) => {
-    amount = amount * 1000000000000000000;
-    let mValue = parseInt(amount);
-    let StringValue = mValue.toString();
-    await this.state.landList.methods.buyProperty(id).send({
-      from: this.state.account,
-      value: StringValue,
-    });
-    window.location.reload();
-  };
+    initialize();
+  }, []);
 
-  handleViewImages = async (images) => {
-    this.setState({ open1: true });
-    if (images) {
-      this.setState({
-        images: images,
+  const handleRequestToBuy = async (propertyId) => {
+    try {
+      setState(prev => ({ ...prev, loading: true }));
+      
+      const tx = await state.contract.requstToLandOwner(propertyId, {
+        gasLimit: 1000000
       });
+      await tx.wait();
+  
+      // Removed the email sending part
+      alert('Purchase request sent successfully!');
+    } catch (error) {
+      console.error("Request error:", error);
+      alert('Error sending purchase request');
+    } finally {
+      setState(prev => ({ ...prev, loading: false }));
     }
   };
 
-  handleClose1 = () => {
-    this.setState({ open1: false });
+  const handleBuyProperty = async (propertyId, price) => {
+    try {
+      setState(prev => ({ ...prev, loading: true }));
+      
+      const tx = await state.contract.buyProperty(propertyId, {
+        value: ethers.parseEther(price.toString()),
+        gasLimit: 1000000
+      });
+      await tx.wait();
+
+      alert('Property purchased successfully!');
+      window.location.reload();
+    } catch (error) {
+      console.error("Purchase error:", error);
+      alert('Error purchasing property');
+    } finally {
+      setState(prev => ({ ...prev, loading: false }));
+    }
   };
 
-  render() {
-    const { assetList } = this.props;
+  const handleViewImages = (images) => {
+    setState(prev => ({
+      ...prev,
+      images: images || [],
+      openDialog: true
+    }));
+  };
 
-    return (
-      <Paper className={styles.root}>
-        <TableContainer>
-          <Table stickyHeader aria-label="sticky table">
+  const handleCloseDialog = () => {
+    setState(prev => ({ ...prev, openDialog: false }));
+  };
+
+  return (
+    <>
+      <Paper sx={{ 
+        width: '100%',
+        overflow: 'hidden',
+        boxShadow: 3
+      }}>
+        <TableContainer sx={{ maxHeight: 600 }}>
+          <Table stickyHeader aria-label="available properties table">
             <TableHead>
               <TableRow>
                 {columns.map((column) => (
                   <TableCell
                     key={column.id}
-                    style={{ minWidth: column.minWidth }}
+                    sx={{ 
+                      minWidth: column.minWidth,
+                      fontWeight: 'bold',
+                      backgroundColor: 'primary.main',
+                      color: 'primary.contrastText'
+                    }}
                   >
-                    <b>{column.label}</b>
+                    {column.label}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {assetList.map((row, index) => {
-                return (
-                  <TableRow hover role="checkbox" key={row.code}>
-                    {columns.map((column) => {
-                      const value = row[column.id];
-                      return (
-                        <TableCell key={column.id}>
-                          {column.id === 'isAvailable' && value === 'Available' ? (
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              onClick={() => this.handleAccept(row['property'], row['email'])}
-                            >
-                              Request to Buy
-                            </Button>
-                          ) : column.id === 'isAvailable' && value === 'GovtApproved' ? (
-                            <div>Unavailable</div>
-                          ) : column.id === 'isAvailable' && value === 'Approved' ? (
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              onClick={() => this.handleBuy(row['property'], row['lamount'])}
-                            >
-                              Buy
-                            </Button>
-                          ) : column.id === 'document' ? (
-                            <a href={row['document']} download>
-                              Download Document
-                            </a>
-                          ) : column.id === 'images' ? (
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              onClick={() => this.handleViewImages(row['images'])}
-                            >
-                              View Images
-                            </Button>
-                          ) : (
-                            value
-                          )}
-                          <Dialog
-                            open={this.state.open1}
-                            TransitionComponent={Transition}
-                            keepMounted
-                            onClose={this.handleClose1}
-                            aria-labelledby="alert-dialog-slide-title"
-                            aria-describedby="alert-dialog-slide-description"
+              {assetList.map((row) => (
+                <TableRow hover key={row.property}>
+                  {columns.map((column) => {
+                    const value = row[column.id];
+                    return (
+                      <TableCell key={column.id}>
+                        {column.id === 'isAvailable' && value === 'Available' ? (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleRequestToBuy(row.property, row.email)}
+                            disabled={state.loading}
+                            sx={{ textTransform: 'none' }}
                           >
-                            <DialogTitle id="alert-dialog-slide-title" style={{ textAlign: 'center' }}>
-                              {'View Images'}
-                            </DialogTitle>
-                            <DialogContent>
-                              <DialogContentText id="alert-dialog-slide-description">
-                                {this.state.images.map((image) => (
-                                  <img
-                                    src={image}
-                                    style={{
-                                      height: '300px',
-                                      width: '400px',
-                                      margin: '10px',
-                                    }}
-                                  />
-                                ))}
-                              </DialogContentText>
-                            </DialogContent>
-                            <DialogActions>
-                              <Button onClick={this.handleClose1} color="primary">
-                                Close
-                              </Button>
-                            </DialogActions>
-                          </Dialog>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
+                            Request to Buy
+                          </Button>
+                        ) : column.id === 'isAvailable' && value === 'Approved' ? (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={() => handleBuyProperty(row.property, row.lamount)}
+                            disabled={state.loading}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Complete Purchase
+                          </Button>
+                        ) : column.id === 'document' ? (
+                          <Button
+                            variant="outlined"
+                            component="a"
+                            href={row.document}
+                            target="_blank"
+                            rel="noopener"
+                            sx={{ textTransform: 'none' }}
+                          >
+                            View Documents
+                          </Button>
+                        ) : column.id === 'images' ? (
+                          <Button
+                            variant="outlined"
+                            onClick={() => handleViewImages(row.images)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            View Images
+                          </Button>
+                        ) : column.id === 'lamount' ? (
+                          `${parseFloat(value).toFixed(4)} ETH`
+                        ) : (
+                          value
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
       </Paper>
-    );
-  }
-}
+
+      <Dialog
+        open={state.openDialog}
+        TransitionComponent={Transition}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+      >
+        <DialogTitle sx={{ textAlign: 'center' }}>
+          Property Images
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            alignItems: 'center'
+          }}>
+            {state.images.map((image, index) => (
+              <Box
+                key={index}
+                component="img"
+                src={image}
+                alt={`Property ${index + 1}`}
+                sx={{
+                  maxHeight: '400px',
+                  maxWidth: '100%',
+                  objectFit: 'contain'
+                }}
+              />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={handleCloseDialog}
+            color="primary"
+            variant="contained"
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
 
 export default BuyerTable;

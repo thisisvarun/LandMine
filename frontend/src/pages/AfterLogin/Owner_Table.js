@@ -1,11 +1,26 @@
-import React, { Component } from 'react'
-import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Slide } from '@mui/material';
-import Web3 from 'web3';
-import Land from '../../abis/LandRegistry.json';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  Grid,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Slide,
+} from '@mui/material';
+import { ethers } from 'ethers';
+import LandRegistry from '../../abis/LandRegistry.json';
 
 const Transition = React.forwardRef(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />
+  return <Slide direction="up" ref={ref} {...props} />;
 });
 
 const columns = [
@@ -22,235 +37,236 @@ const columns = [
   { id: 'requester', label: 'Requestor Info', minWidth: 100 },
 ];
 
-class OwnerTable extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      assetList: [],
-      isLoading: true,
-      open: false,
-      open1: false,
-      images: [],
-    };
-  }
+const OwnerTable = ({ assetList }) => {
+  const [state, setState] = useState({
+    account: null,
+    landList: null,
+    open: false,
+    open1: false,
+    images: [],
+    requesterInfo: {
+      name: '',
+      contact: '',
+      city: '',
+      code: '',
+    },
+  });
 
-  componentDidMount = async () => {
-    const web3 = new Web3(
-      Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
-    );
-    if (window.ethereum) {
-      try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const accounts = await web3.eth.getAccounts();
-        window.localStorage.setItem('web3account', accounts[0]);
-        this.setState({ account: accounts[0] });
-      } catch (error) {
-        console.error("User denied account access", error);
-      }
-    } else {
-      window.alert('Please install a web3-enabled browser like Trust Wallet or MetaMask.');
-    }
+  useEffect(() => {
+    const initialize = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          await provider.send('eth_requestAccounts', []);
+          const signer = provider.getSigner();
+          const address = await signer.getAddress();
 
-    const networkId = await web3.eth.net.getId();
-    const LandData = Land.networks[networkId];
+          localStorage.setItem('web3account', address);
 
-    if (LandData) {
-      const landList = new web3.eth.Contract(Land.abi, LandData.address);
-      this.setState({ landList });
-    } else {
-      window.alert('Token contract not deployed to detected network.');
-    }
-  }
+          const landList = new ethers.Contract(
+            process.env.REACT_APP_CONTRACT_ADDRESS,
+            LandRegistry.abi,
+            signer
+          );
 
-  handleAccept = async (id) => {
-    await this.state.landList.methods.makeAvailable(id).send({
-      from: this.state.account,
-      gas: 1000000,
-    });
-
-    window.location.reload();
-  }
-
-  handleProcessRequest = async (id, n, address, name) => {
-    await this.state.landList.methods.processRequest(id, n).send({
-      from: this.state.account,
-      gas: 1000000,
-    });
-
-    const user = await this.state.landList.methods.getUser(address).call();
-
-    if (user) {
-      this.setState({
-        uid: user[0],
-        uname: user[1],
-        ucontact: user[2],
-        uemail: user[3],
-        ucode: user[4],
-        ucity: user[5],
-        exist: user[6],
-      });
-    }
-
-    let data = {
-      lemail: this.state.uemail,
-      subject: n === 3 ? `${name} has accepted your request.` : `${name} has rejected your request.`,
-      message: n === 3 ? `${name} has accepted your request. Please check your account.` : `${name} has rejected your request. Please check your account.`,
-    };
-
-    await axios.post('http://localhost:4000/send_mail', data)
-      .then((response) => {
-        if (response.status === 200) {
-          alert('Message Sent.');
-        } else {
-          alert('Message failed to send.');
+          setState((prev) => ({
+            ...prev,
+            account: address,
+            landList,
+          }));
+        } catch (error) {
+          console.error('Error connecting to wallet:', error);
         }
+      } else {
+        console.log('Please install a compatible wallet like MetaMask!');
+      }
+    };
+
+    initialize();
+  }, []);
+
+  const handleAccept = async (id) => {
+    try {
+      const tx = await state.landList.makeAvailable(id, {
+        gasLimit: 1000000,
       });
-    window.location.reload();
-  }
+      await tx.wait();
+      alert('Property made available successfully!');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error making property available:', error);
+      alert('Failed to make property available');
+    }
+  };
 
-  handleRequesterInfo = async (address) => {
-    this.setState({ open: true });
-    const user = await this.state.landList.methods.getUser(address).call();
-
-    if (user) {
-      this.setState({
-        uid: user[0],
-        uname: user[1],
-        ucontact: user[2],
-        uemail: user[3],
-        ucode: user[4],
-        ucity: user[5],
-        exist: user[6],
+  const handleProcessRequest = async (id, n) => {
+    try {
+      const tx = await state.landList.processRequest(id, n, {
+        gasLimit: 1000000,
       });
+      await tx.wait();
+
+      alert(`Request ${n === 3 ? 'accepted' : 'rejected'} successfully!`);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error processing request:', error);
+      alert('Failed to process request');
     }
-  }
+  };
 
-  handleClose = () => {
-    this.setState({ open: false });
-  }
+  const handleRequesterInfo = async (address) => {
+    try {
+      const user = await state.landList.getUser(address);
 
-  handleViewImages = async (images) => {
-    this.setState({ open1: true });
-
-    if (images) {
-      this.setState({ images });
+      if (user) {
+        setState((prev) => ({
+          ...prev,
+          open: true,
+          requesterInfo: {
+            name: user[1],
+            contact: user[2],
+            city: user[5],
+            code: user[4],
+          },
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching requester info:', error);
+      alert('Failed to load requester info');
     }
-  }
+  };
 
-  handleClose1 = () => {
-    this.setState({ open1: false });
-  }
+  const handleClose = () => {
+    setState((prev) => ({ ...prev, open: false }));
+  };
 
-  render() {
-    const { assetList } = this.props;
+  const handleViewImages = (images) => {
+    setState((prev) => ({
+      ...prev,
+      open1: true,
+      images: images || [],
+    }));
+  };
 
-    return (
-      <Paper>
-        <TableContainer>
-          <Table stickyHeader aria-label="sticky table">
-            <TableHead>
-              <TableRow>
-                {columns.map((column) => (
-                  <TableCell key={column.id} align={column.align} style={{ minWidth: column.minWidth }}>
-                    <b>{column.label}</b>
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {assetList.map((row) => (
-                <TableRow hover role="checkbox" tabIndex={-1} key={row.code}>
-                  {columns.map((column) => {
-                    const value = row[column.id];
-                    return (
-                      <TableCell key={column.id} align={column.align}>
-                        {column.id === 'isAvailable' && value === 'GovtApproved' ? (
-                          <Button variant="contained" color="primary" onClick={() => this.handleAccept(row['property'])}>
-                            Make Available
-                          </Button>
-                        ) : column.id === 'isAvailable' && value === 'Pending' ? (
-                          <Grid container spacing={2}>
-                            <Grid item>
-                              <Button variant="contained" color="primary" onClick={() => this.handleProcessRequest(row['property'], 3, row['requester'], row['name'])}>
-                                Accept
-                              </Button>
-                            </Grid>
-                            <Grid item>
-                              <Button variant="contained" color="secondary" onClick={() => this.handleProcessRequest(row['property'], 2, row['requester'], row['name'])}>
-                                Reject
-                              </Button>
-                            </Grid>
-                          </Grid>
-                        ) : column.id === 'requester' && value !== '0x0000000000000000000000000000000000000000' ? (
-                          <Button variant="contained" color="primary" onClick={() => this.handleRequesterInfo(row['requester'])}>
-                            View Request
-                          </Button>
-                        ) : column.id === 'requester' && value === '0x0000000000000000000000000000000000000000' ? (
-                          <span>No Requestor</span>
-                        ) : column.id === 'document' ? (
-                          <a href={row['document']} download>
-                            Download Document
-                          </a>
-                        ) : column.id === 'images' ? (
-                          <Button variant="contained" color="primary" onClick={() => this.handleViewImages(row['images'])}>
-                            View Images
-                          </Button>
-                        ) : (
-                          value
-                        )}
-                        <Dialog open={this.state.open} TransitionComponent={Transition} keepMounted onClose={this.handleClose} aria-labelledby="alert-dialog-slide-title" aria-describedby="alert-dialog-slide-description">
-                          <DialogTitle id="alert-dialog-slide-title" style={{ textAlign: 'center' }}>
-                            {'Requestor Details'}
-                          </DialogTitle>
-                          <DialogContent>
-                            <DialogContentText id="alert-dialog-slide-description">
-                              <b>Name:</b> {this.state.uname}
-                              <br />
-                              <b>Address:</b> {row['requester']}
-                              <br />
-                              <b>Contact Number:</b> {this.state.ucontact}
-                              <br />
-                              <b>Email ID:</b> {this.state.uemail}
-                              <br />
-                              <b>City:</b> {this.state.ucity}
-                              <br />
-                              <b>Postal Code:</b> {this.state.ucode}
-                            </DialogContentText>
-                          </DialogContent>
-                          <DialogActions>
-                            <Button onClick={this.handleClose} color="primary">
-                              Close
-                            </Button>
-                          </DialogActions>
-                        </Dialog>
-                        <Dialog open={this.state.open1} TransitionComponent={Transition} keepMounted onClose={this.handleClose1} aria-labelledby="alert-dialog-slide-title" aria-describedby="alert-dialog-slide-description">
-                          <DialogTitle id="alert-dialog-slide-title" style={{ textAlign: 'center' }}>
-                            {'View Images'}
-                          </DialogTitle>
-                          <DialogContent>
-                            <DialogContentText id="alert-dialog-slide-description">
-                              {this.state.images.map((image) => (
-                                <img src={image} style={{ height: '300px', width: '400px', margin: '10px' }} alt="land" />
-                              ))}
-                            </DialogContentText>
-                          </DialogContent>
-                          <DialogActions>
-                            <Button onClick={this.handleClose1} color="primary">
-                              Close
-                            </Button>
-                          </DialogActions>
-                        </Dialog>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
+  const handleClose1 = () => {
+    setState((prev) => ({ ...prev, open1: false }));
+  };
+
+  return (
+    <Paper>
+      <TableContainer>
+        <Table stickyHeader aria-label="sticky table">
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell key={column.id} align={column.align} style={{ minWidth: column.minWidth }}>
+                  <b>{column.label}</b>
+                </TableCell>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    );
-  }
-}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {assetList.map((row) => (
+              <TableRow hover role="checkbox" tabIndex={-1} key={row.property}>
+                {columns.map((column) => {
+                  const value = row[column.id];
+                  return (
+                    <TableCell key={column.id} align={column.align}>
+                      {column.id === 'isAvailable' && value === 'GovtApproved' ? (
+                        <Button variant="contained" color="primary" onClick={() => handleAccept(row.property)}>
+                          Make Available
+                        </Button>
+                      ) : column.id === 'isAvailable' && value === 'Pending' ? (
+                        <Grid container spacing={2}>
+                          <Grid item>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              onClick={() => handleProcessRequest(row.property, 3)}
+                            >
+                              Accept
+                            </Button>
+                          </Grid>
+                          <Grid item>
+                            <Button
+                              variant="contained"
+                              color="secondary"
+                              onClick={() => handleProcessRequest(row.property, 2)}
+                            >
+                              Reject
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      ) : column.id === 'requester' && value !== '0x0000000000000000000000000000000000000000' ? (
+                        <Button variant="contained" color="primary" onClick={() => handleRequesterInfo(row.requester)}>
+                          View Request
+                        </Button>
+                      ) : column.id === 'requester' && value === '0x0000000000000000000000000000000000000000' ? (
+                        <span>No Requestor</span>
+                      ) : column.id === 'document' ? (
+                        <a href={row.document} download>
+                          Download Document
+                        </a>
+                      ) : column.id === 'images' ? (
+                        <Button variant="contained" color="primary" onClick={() => handleViewImages(row.images)}>
+                          View Images
+                        </Button>
+                      ) : (
+                        value
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Requester Info Dialog */}
+      <Dialog open={state.open} TransitionComponent={Transition} keepMounted onClose={handleClose}>
+        <DialogTitle style={{ textAlign: 'center' }}>Requestor Details</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <b>Name:</b> {state.requesterInfo.name}
+            <br />
+            <b>Contact Number:</b> {state.requesterInfo.contact}
+            <br />
+            <b>City:</b> {state.requesterInfo.city}
+            <br />
+            <b>Postal Code:</b> {state.requesterInfo.code}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Images Dialog */}
+      <Dialog open={state.open1} TransitionComponent={Transition} keepMounted onClose={handleClose1}>
+        <DialogTitle style={{ textAlign: 'center' }}>View Images</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {state.images.map((image, index) => (
+              <img
+                key={index}
+                src={image}
+                style={{ height: '300px', width: '400px', margin: '10px' }}
+                alt="land"
+              />
+            ))}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose1} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
+  );
+};
 
 export default OwnerTable;

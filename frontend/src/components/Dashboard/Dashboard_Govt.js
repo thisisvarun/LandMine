@@ -1,124 +1,100 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, CircularProgress } from '@mui/material';
-import Land from '../../abis/LandRegistry.json';
-import Table from '../../pages/AfterLogin/Govt_Table';
-import { withStyles } from '@mui/styles';
-import Web3 from 'web3';
+import { styled } from '@mui/material/styles';
+import { ethers } from 'ethers';
+import LandRegistry from '../../abis/LandRegistry.json';
+import GovtTable from '../../pages/AfterLogin/Govt_Table';
 import axios from 'axios';
-import { create } from 'ipfs-http-client';
 
-const styles = {
-  container: {
-    '& .MuiContainer-maxWidthLg': {
-      maxWidth: '100%',
-    },
+// Styled components
+const DashboardContainer = styled(Container)(({ theme }) => ({
+  marginTop: theme.spacing(8),
+  '& .MuiContainer-maxWidthLg': {
+    maxWidth: '100%',
   },
-};
+}));
 
-// Initialize IPFS client
-const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' });
+const Dashboard = () => {
+  const [state, setState] = useState({
+    assetList: [],
+    isLoading: true,
+    landList: null,
+    account: null,
+    error: null
+  });
 
-class Dashboard extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      assetList: [],
-      isLoading: true,
-      landList: null,
-      account: null,
-    };
-  }
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        // Connect to Hardhat local node
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        
+        // Initialize contract
+        const landList = new ethers.Contract(
+          process.env.REACT_APP_CONTRACT_ADDRESS,
+          LandRegistry.abi,
+          signer
+        );
 
-  async componentDidMount() {
-    try {
-      const web3 = new Web3(
-        Web3.givenProvider || process.env.QUICKNODE_RPC // Use Sepolia RPC
-      );
-      await window.ethereum.enable();
+        // Fetch initial data
+        const [backendData, properties] = await Promise.all([
+          axios.get('http://localhost:5000/gov'),
+          landList.Assets()
+        ]);
 
-      const accounts = await web3.eth.getAccounts();
-      window.localStorage.setItem('web3account', accounts[0]);
+        // Process properties
+        const processedAssets = await processProperties(properties, landList);
 
-      const networkId = await web3.eth.net.getId();
-      const LandData = Land.networks[networkId];
-      if (LandData) {
-        const landList = new web3.eth.Contract(Land.abi, LandData.address);
-        this.setState({ landList, account: accounts[0] });
-        this.getDetails(landList);
-      } else {
-        alert('Token contract not deployed to detected network.');
+        setState({
+          assetList: [...backendData.data, ...processedAssets],
+          isLoading: false,
+          landList,
+          account: address
+        });
+
+      } catch (error) {
+        console.error('Initialization error:', error);
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error.message
+        }));
       }
+    };
 
-      const res = await axios.get('http://localhost:4000/gov');
-      this.setState({ assetList: res.data, isLoading: false });
+    initialize();
+  }, []);
 
-    } catch (error) {
-      console.error('Initialization error:', error);
-      this.setState({ isLoading: false });
+  const processProperties = async (properties, landList) => {
+    const results = [];
+    for (const property of properties) {
+      try {
+        const details = await landList.landInfoOwner(property);
+        // If using IPFS, you would fetch metadata here
+        // const ipfsData = await fetchIPFSData(details.ipfsHash);
+        
+        results.push({
+          property,
+          ...details,
+          // ...ipfsData
+        });
+      } catch (error) {
+        console.error(`Error processing property ${property}:`, error);
+      }
     }
-  }
-
-  async propertyDetails(property, landList) {
-    try {
-      const details = await landList.methods.landInfoOwner(property).call();
-      const ipfsData = await ipfs.cat(details[1]); // Fetch data from IPFS
-      const data = JSON.parse(new TextDecoder().decode(ipfsData)); // Decode and parse IPFS data
-
-      this.setState((prevState) => ({
-        assetList: [
-          ...prevState.assetList,
-          {
-            property,
-            uniqueID: details[1],
-            name: data.name,
-            key: details[0],
-            email: data.email,
-            contact: data.contact,
-            pan: data.pan,
-            occupation: data.occupation,
-            oaddress: data.address,
-            ostate: data.state,
-            ocity: data.city,
-            opostalCode: data.postalCode,
-            laddress: data.laddress,
-            lstate: data.lstate,
-            lcity: data.lcity,
-            lpostalCode: data.lpostalCode,
-            larea: data.larea,
-            lamount: details[2],
-            isGovtApproved: details[3],
-            isAvailable: details[4],
-            requester: details[5],
-            requestStatus: details[6],
-            document: data.document,
-            images: data.images,
-          },
-        ],
-      }));
-    } catch (error) {
-      console.error('Error fetching property:', error);
-    }
-  }
-
-  async getDetails(landList) {
-    try {
-      const properties = await landList.methods.Assets().call();
-      properties.forEach((property) => {
-        this.propertyDetails(property, landList);
-      });
-    } catch (error) {
-      console.error('Error fetching assets:', error);
-    }
-  }
+    return results;
+  };
 
   // Function to approve land registration request
-  approveRegistrationRequest = async (property) => {
-    const { landList, account } = this.state;
+  const approveRegistrationRequest = async (property) => {
     try {
-      await landList.methods
-        .approveLandRegistration(property)
-        .send({ from: account });
+      const tx = await state.landList.approveLandRegistration(property);
+      await tx.wait();
       alert('Registration request approved!');
+      window.location.reload();
     } catch (error) {
       console.error('Error approving registration:', error);
       alert('Error approving registration request.');
@@ -126,13 +102,12 @@ class Dashboard extends Component {
   };
 
   // Function to deny land registration request
-  denyRegistrationRequest = async (property) => {
-    const { landList, account } = this.state;
+  const denyRegistrationRequest = async (property) => {
     try {
-      await landList.methods
-        .denyLandRegistration(property)
-        .send({ from: account });
+      const tx = await state.landList.denyLandRegistration(property);
+      await tx.wait();
       alert('Registration request denied!');
+      window.location.reload();
     } catch (error) {
       console.error('Error denying registration:', error);
       alert('Error denying registration request.');
@@ -140,54 +115,67 @@ class Dashboard extends Component {
   };
 
   // Function to handle land transfer and collect stamp duty
-  transferLand = async (property, newOwner) => {
-    const { landList, account } = this.state;
-    const stampDutyPercentage = 0.07;
+  const transferLand = async (property, newOwner) => {
     try {
-      const details = await landList.methods.landInfoOwner(property).call();
+      const details = await state.landList.landInfoOwner(property);
       const landAmount = details[2]; // Get land amount
+      const stampDutyPercentage = 0.07;
       const stampDuty = landAmount * stampDutyPercentage;
 
-      // Transfer land and send stamp duty to government
-      await landList.methods
-        .transferLand(property, newOwner)
-        .send({ from: account });
+      // Transfer land
+      const transferTx = await state.landList.transferLand(property, newOwner);
+      await transferTx.wait();
 
       // Transfer stamp duty to government account
-      await landList.methods
-        .transferToGovernment('0x383E286EA48E1626605e349C6a72c11e10CC46F1', stampDuty)
-        .send({ from: account });
+      const paymentTx = await state.landList.transferToGovernment(
+        '0x383E286EA48E1626605e349C6a72c11e10CC46F1', 
+        stampDuty
+      );
+      await paymentTx.wait();
 
       alert('Land transferred and stamp duty collected!');
+      window.location.reload();
     } catch (error) {
       console.error('Error transferring land:', error);
       alert('Error during land transfer.');
     }
   };
 
-  render() {
-    const { classes } = this.props;
-    const { isLoading, assetList } = this.state;
-
-    return isLoading ? (
-      <div style={{ position: 'absolute', top: '50%', left: '50%' }}>
+  if (state.isLoading) {
+    return (
+      <div style={{ 
+        position: 'absolute', 
+        top: '50%', 
+        left: '50%', 
+        transform: 'translate(-50%, -50%)' 
+      }}>
         <CircularProgress />
-      </div>
-    ) : (
-      <div className="profile-bg">
-        <div className={classes.container}>
-          <Container style={{ marginTop: '100px' }}>
-            <Table
-              assetList={assetList}
-              approveRegistrationRequest={this.approveRegistrationRequest}
-              denyRegistrationRequest={this.denyRegistrationRequest}
-              transferLand={this.transferLand}
-            />
-          </Container>
-        </div>
       </div>
     );
   }
-}
 
-export default withStyles(styles)(Dashboard);
+  if (state.error) {
+    return (
+      <DashboardContainer>
+        <div style={{ color: 'red', padding: '20px' }}>
+          Error: {state.error}
+        </div>
+      </DashboardContainer>
+    );
+  }
+
+  return (
+    <div className="profile-bg">
+      <DashboardContainer>
+        <GovtTable
+          assetList={state.assetList}
+          approveRegistrationRequest={approveRegistrationRequest}
+          denyRegistrationRequest={denyRegistrationRequest}
+          transferLand={transferLand}
+        />
+      </DashboardContainer>
+    </div>
+  );
+};
+
+export default Dashboard;
