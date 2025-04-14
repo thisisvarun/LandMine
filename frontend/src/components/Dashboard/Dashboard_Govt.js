@@ -1,10 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Container, CircularProgress } from '@mui/material';
+import { 
+  Container, 
+  CircularProgress,
+  AppBar,
+  Tabs,
+  Tab,
+  Box,
+  Alert,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ethers } from 'ethers';
 import LandRegistry from '../../abis/LandRegistry.json';
 import GovtTable from '../../pages/AfterLogin/Govt_Table';
 import axios from 'axios';
+
+// Constants
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
+const GOVERNMENT_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'; // Should be in env
 
 // Styled components
 const DashboardContainer = styled(Container)(({ theme }) => ({
@@ -14,72 +33,89 @@ const DashboardContainer = styled(Container)(({ theme }) => ({
   },
 }));
 
-const Dashboard = () => {
+const StyledTabPanel = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+}));
+
+const GovernmentDashboard = () => {
   const [state, setState] = useState({
     assetList: [],
     isLoading: true,
-    landList: null,
+    landContract: null,
     account: null,
-    error: null
+    error: null,
+    activeTab: 0,
+    txStatus: null,
+    snackbarOpen: false,
+    snackbarMessage: '',
+    snackbarSeverity: 'success',
+    dialogOpen: false,
+    dialogConfig: null
   });
 
+  // Initialize connection and fetch data
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Connect to Hardhat local node
+        // Connect to Ethereum
         const provider = new ethers.BrowserProvider(window.ethereum);
         await window.ethereum.request({ method: 'eth_requestAccounts' });
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         
         // Initialize contract
-        const landList = new ethers.Contract(
-          process.env.REACT_APP_CONTRACT_ADDRESS,
+        const landContract = new ethers.Contract(
+          CONTRACT_ADDRESS,
           LandRegistry.abi,
           signer
         );
 
-        // Fetch initial data
-        const [backendData, properties] = await Promise.all([
-          axios.get('http://localhost:5000/gov'),
-          landList.Assets()
-        ]);
-
-        // Process properties
-        const processedAssets = await processProperties(properties, landList);
-
-        setState({
-          assetList: [...backendData.data, ...processedAssets],
-          isLoading: false,
-          landList,
-          account: address
-        });
-
-      } catch (error) {
-        console.error('Initialization error:', error);
         setState(prev => ({
           ...prev,
-          isLoading: false,
-          error: error.message
+          landContract,
+          account: address,
+          isLoading: false
         }));
+
+        await fetchData(landContract);
+      } catch (error) {
+        handleError('Initialization error:', error);
       }
     };
 
     initialize();
   }, []);
 
-  const processProperties = async (properties, landList) => {
+  // Fetch data from blockchain and backend
+  const fetchData = async (contract) => {
+    try {
+      const [backendData, properties] = await Promise.all([
+        axios.get(`${API_URL}/gov`),
+        contract.Assets()
+      ]);
+
+      const processedAssets = await processProperties(properties, contract);
+
+      setState(prev => ({
+        ...prev,
+        assetList: [...backendData.data, ...processedAssets],
+        isLoading: false
+      }));
+    } catch (error) {
+      handleError('Data fetching error:', error);
+    }
+  };
+
+  // Process blockchain properties
+  const processProperties = async (properties, contract) => {
     const results = [];
     for (const property of properties) {
       try {
-        const details = await landList.landInfoOwner(property);
-        // If using IPFS, you would fetch metadata here
-        // const ipfsData = await fetchIPFSData(details.ipfsHash);
-        
+        const details = await contract.landInfoOwner(property);
         results.push({
-          property,
+          id: property,
           ...details,
-          // ...ipfsData
+          // Add any additional processing here
         });
       } catch (error) {
         console.error(`Error processing property ${property}:`, error);
@@ -88,78 +124,138 @@ const Dashboard = () => {
     return results;
   };
 
-  // Function to approve land registration request
-  const approveRegistrationRequest = async (property) => {
+  // Handle approval of land registration
+  const handleApprove = async (propertyId) => {
+    setState(prev => ({ ...prev, txStatus: 'approving' }));
+    
     try {
-      const tx = await state.landList.approveLandRegistration(property);
+      const tx = await state.landContract.approveLandRegistration(propertyId);
+      showSnackbar('Transaction submitted. Waiting for confirmation...', 'info');
+      
       await tx.wait();
-      alert('Registration request approved!');
-      window.location.reload();
+      await fetchData(state.landContract);
+      
+      showSnackbar('Registration approved successfully!', 'success');
     } catch (error) {
-      console.error('Error approving registration:', error);
-      alert('Error approving registration request.');
+      handleError('Approval error:', error);
+      showSnackbar('Approval failed', 'error');
+    } finally {
+      setState(prev => ({ ...prev, txStatus: null }));
     }
   };
 
-  // Function to deny land registration request
-  const denyRegistrationRequest = async (property) => {
+  // Handle denial of land registration
+  const handleDeny = async (propertyId) => {
+    setState(prev => ({ ...prev, txStatus: 'denying' }));
+    
     try {
-      const tx = await state.landList.denyLandRegistration(property);
+      const tx = await state.landContract.denyLandRegistration(propertyId);
+      showSnackbar('Transaction submitted. Waiting for confirmation...', 'info');
+      
       await tx.wait();
-      alert('Registration request denied!');
-      window.location.reload();
+      await fetchData(state.landContract);
+      
+      showSnackbar('Registration denied successfully!', 'success');
     } catch (error) {
-      console.error('Error denying registration:', error);
-      alert('Error denying registration request.');
+      handleError('Denial error:', error);
+      showSnackbar('Denial failed', 'error');
+    } finally {
+      setState(prev => ({ ...prev, txStatus: null }));
     }
   };
 
-  // Function to handle land transfer and collect stamp duty
-  const transferLand = async (property, newOwner) => {
-    try {
-      const details = await state.landList.landInfoOwner(property);
-      const landAmount = details[2]; // Get land amount
-      const stampDutyPercentage = 0.07;
-      const stampDuty = landAmount * stampDutyPercentage;
+  // Handle land transfer with confirmation dialog
+  const initiateTransfer = (propertyId, currentOwner) => {
+    setState(prev => ({
+      ...prev,
+      dialogOpen: true,
+      dialogConfig: {
+        title: 'Confirm Land Transfer',
+        content: `Are you sure you want to transfer land ${propertyId} from ${currentOwner}?`,
+        actions: [
+          {
+            text: 'Cancel',
+            handler: () => setState(prev => ({ ...prev, dialogOpen: false }))
+          },
+          {
+            text: 'Confirm',
+            handler: () => handleTransfer(propertyId)
+          }
+        ]
+      }
+    }));
+  };
 
-      // Transfer land
-      const transferTx = await state.landList.transferLand(property, newOwner);
+  // Execute land transfer
+  const handleTransfer = async (propertyId) => {
+    setState(prev => ({ ...prev, dialogOpen: false, txStatus: 'transferring' }));
+    
+    try {
+      const details = await state.landContract.landInfoOwner(propertyId);
+      const landAmount = details[2];
+      const stampDuty = landAmount * 0.07;
+
+      // Execute transfer
+      const transferTx = await state.landContract.transferLand(propertyId, GOVERNMENT_ADDRESS);
+      showSnackbar('Transfer initiated. Processing stamp duty...', 'info');
       await transferTx.wait();
 
-      // Transfer stamp duty to government account
-      const paymentTx = await state.landList.transferToGovernment(
-        '0x383E286EA48E1626605e349C6a72c11e10CC46F1', 
-        stampDuty
-      );
+      // Process stamp duty
+      const paymentTx = await state.landContract.transferToGovernment(GOVERNMENT_ADDRESS, stampDuty);
       await paymentTx.wait();
 
-      alert('Land transferred and stamp duty collected!');
-      window.location.reload();
+      await fetchData(state.landContract);
+      showSnackbar('Land transferred and stamp duty collected!', 'success');
     } catch (error) {
-      console.error('Error transferring land:', error);
-      alert('Error during land transfer.');
+      handleError('Transfer error:', error);
+      showSnackbar('Transfer failed', 'error');
+    } finally {
+      setState(prev => ({ ...prev, txStatus: null }));
     }
+  };
+
+  // Helper functions
+  const handleError = (context, error) => {
+    console.error(context, error);
+    setState(prev => ({
+      ...prev,
+      error: error.message,
+      isLoading: false,
+      txStatus: null
+    }));
+  };
+
+  const showSnackbar = (message, severity) => {
+    setState(prev => ({
+      ...prev,
+      snackbarOpen: true,
+      snackbarMessage: message,
+      snackbarSeverity: severity
+    }));
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setState(prev => ({ ...prev, activeTab: newValue }));
+  };
+
+  const handleCloseSnackbar = () => {
+    setState(prev => ({ ...prev, snackbarOpen: false }));
   };
 
   if (state.isLoading) {
     return (
-      <div style={{ 
-        position: 'absolute', 
-        top: '50%', 
-        left: '50%', 
-        transform: 'translate(-50%, -50%)' 
-      }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
         <CircularProgress />
-      </div>
+      </Box>
     );
   }
 
   if (state.error) {
     return (
       <DashboardContainer>
-        <div style={{ color: 'red', padding: '20px' }}>
-          Error: {state.error}
-        </div>
+        <Alert severity="error" sx={{ my: 2 }}>
+          {state.error}
+        </Alert>
       </DashboardContainer>
     );
   }
@@ -167,15 +263,71 @@ const Dashboard = () => {
   return (
     <div className="profile-bg">
       <DashboardContainer>
-        <GovtTable
-          assetList={state.assetList}
-          approveRegistrationRequest={approveRegistrationRequest}
-          denyRegistrationRequest={denyRegistrationRequest}
-          transferLand={transferLand}
-        />
+        <AppBar position="static" color="default">
+          <Tabs
+            value={state.activeTab}
+            onChange={handleTabChange}
+            indicatorColor="primary"
+            textColor="primary"
+            variant="fullWidth"
+          >
+            <Tab label="Land Registry" />
+            <Tab label="Transactions" />
+          </Tabs>
+        </AppBar>
+
+        <StyledTabPanel hidden={state.activeTab !== 0}>
+          <GovtTable
+            assetList={state.assetList}
+            onApprove={handleApprove}
+            onDeny={handleDeny}
+            onTransfer={initiateTransfer}
+            isLoading={state.txStatus !== null}
+          />
+        </StyledTabPanel>
+
+        <StyledTabPanel hidden={state.activeTab !== 1}>
+          {/* Transaction history component would go here */}
+          <Box p={3}>
+            <Alert severity="info">Transaction history feature coming soon</Alert>
+          </Box>
+        </StyledTabPanel>
+
+        <Snackbar
+          open={state.snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+        >
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={state.snackbarSeverity}
+            sx={{ width: '100%' }}
+          >
+            {state.snackbarMessage}
+          </Alert>
+        </Snackbar>
+
+        <Dialog
+          open={state.dialogOpen}
+          onClose={() => setState(prev => ({ ...prev, dialogOpen: false }))}
+        >
+          {state.dialogConfig && (
+            <>
+              <DialogTitle>{state.dialogConfig.title}</DialogTitle>
+              <DialogContent>{state.dialogConfig.content}</DialogContent>
+              <DialogActions>
+                {state.dialogConfig.actions.map((action, index) => (
+                  <Button key={index} onClick={action.handler}>
+                    {action.text}
+                  </Button>
+                ))}
+              </DialogActions>
+            </>
+          )}
+        </Dialog>
       </DashboardContainer>
     </div>
   );
 };
 
-export default Dashboard;
+export default GovernmentDashboard;

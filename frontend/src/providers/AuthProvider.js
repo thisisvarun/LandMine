@@ -6,9 +6,8 @@ export const AuthContext = createContext();
 const AuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState({
     isAuthenticated: false,
-    isGovt: false,
     user: null,
-    loading: true
+    token: null
   });
 
   useEffect(() => {

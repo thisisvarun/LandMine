@@ -1,50 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Container, 
-  CircularProgress, 
-  AppBar, 
-  Tabs, 
-  Tab, 
+  CircularProgress,
+  AppBar,
+  Tabs,
+  Tab,
   Box,
-  Alert
+  Alert,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { ethers } from 'ethers'; // Main ethers import
-// For ethers v6, we don't need separate imports for providers
+import { ethers } from 'ethers';
 import LandRegistry from '../../abis/LandRegistry.json';
-import Table from '../../pages/AfterLogin/Owner_Table';
-import AvailableTable from '../../pages/AfterLogin/Buyer_Table';
+import OwnerTable from '../../pages/AfterLogin/Owner_Table';
+import BuyerTable from '../../pages/AfterLogin/Buyer_Table';
 import RegistrationForm from '../../pages/AfterLogin/AddNewLand';
 import axios from 'axios';
 
-// Hardhat configuration
-const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
+// Constants
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
 
+// Styled components
 const StyledTabPanel = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
+  minHeight: '60vh'
 }));
 
-const Dashboard = () => {
+const DashboardContainer = styled(Container)(({ theme }) => ({
+  marginTop: theme.spacing(4),
+  paddingBottom: theme.spacing(4)
+}));
+
+const UserDashboard = () => {
   const [state, setState] = useState({
-    assetList: [],
-    assetList1: [],
+    ownedAssets: [],
+    availableAssets: [],
     isLoading: true,
-    error: null,
-    value: 0,
+    contract: null,
     account: null,
-    contract: null
+    error: null,
+    activeTab: 0,
+    txStatus: null,
+    snackbarOpen: false,
+    snackbarMessage: '',
+    snackbarSeverity: 'success',
+    dialogOpen: false,
+    dialogConfig: null,
+    currentPage: 0,
+    rowsPerPage: 10
   });
 
+  // Initialize connection and fetch data
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Connect to Hardhat local node - ethers v6 syntax
-        const provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+        // Connect to Ethereum
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         
-        // Initialize contract - ethers v6 syntax
+        // Initialize contract
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           LandRegistry.abi,
@@ -53,78 +76,75 @@ const Dashboard = () => {
 
         setState(prev => ({
           ...prev,
-          account: address,
           contract,
+          account: address,
           isLoading: false
         }));
 
         await fetchData(contract, address);
       } catch (error) {
-        console.error('Initialization error:', error);
-        setState(prev => ({
-          ...prev,
-          error: error.message,
-          isLoading: false
-        }));
+        handleError('Initialization error:', error);
       }
     };
 
     initialize();
   }, []);
 
-  const fetchData = async (contract, account) => {
+  // Fetch data from blockchain and backend
+  const fetchData = useCallback(async (contract, account) => {
     try {
-      const [ownerProperties, allProperties, ownerData] = await Promise.all([
+      setState(prev => ({ ...prev, isLoading: true }));
+      
+      const [ownerProperties, allProperties, backendData] = await Promise.all([
         contract.viewAssets({ from: account }),
         contract.Assets(),
-        axios.get('http://localhost:5000/owner')
+        axios.get(`${API_URL}/owner`)
       ]);
 
-      const processedAssets = await processProperties(ownerProperties, contract);
+      const processedOwnedAssets = await processOwnedProperties(ownerProperties, contract);
       const processedAvailableAssets = await processAvailableProperties(allProperties, contract, account);
 
       setState(prev => ({
         ...prev,
-        assetList: [...ownerData.data, ...processedAssets],
-        assetList1: processedAvailableAssets,
+        ownedAssets: [...backendData.data, ...processedOwnedAssets],
+        availableAssets: processedAvailableAssets,
         isLoading: false
       }));
     } catch (error) {
-      console.error('Data fetching error:', error);
-      setState(prev => ({
-        ...prev,
-        error: error.message,
-        isLoading: false
-      }));
+      handleError('Data fetching error:', error);
     }
-  };
+  }, []);
 
-  const processProperties = async (properties, contract) => {
+  // Process owned properties
+  const processOwnedProperties = async (properties, contract) => {
     const results = [];
     for (const property of properties) {
       try {
         const details = await contract.landInfoOwner(property);
         results.push({
-          property,
+          id: property,
           ...details,
+          // Add metadata if available
         });
       } catch (error) {
-        console.error(`Error processing property ${property}:`, error);
+        console.error(`Error processing owned property ${property}:`, error);
       }
     }
     return results;
   };
 
+  // Process available properties
   const processAvailableProperties = async (properties, contract, account) => {
     const results = [];
     for (const property of properties) {
       try {
         const details = await contract.landInfoOwner(property);
         
-        if (details.owner !== account && details.isAvailable) {
+        if (details.owner.toLowerCase() !== account.toLowerCase() && details.isAvailable) {
           results.push({
-            property,
+            id: property,
             ...details,
+            // Add metadata if available
           });
         }
       } catch (error) {
@@ -134,8 +154,116 @@ const Dashboard = () => {
     return results;
   };
 
-  const handleChange = (event, newValue) => {
-    setState(prev => ({ ...prev, value: newValue }));
+  // Handle property purchase
+  const handlePurchase = (propertyId, price) => {
+    setState(prev => ({
+      ...prev,
+      dialogOpen: true,
+      dialogConfig: {
+        title: 'Confirm Purchase',
+        content: `Are you sure you want to purchase property ${propertyId} for ${price} ETH?`,
+        actions: [
+          {
+            text: 'Cancel',
+            handler: () => setState(prev => ({ ...prev, dialogOpen: false }))
+          },
+          {
+            text: 'Purchase',
+            handler: () => executePurchase(propertyId, price)
+          }
+        ]
+      }
+    }));
+  };
+
+  // Execute property purchase
+  const executePurchase = async (propertyId, price) => {
+    setState(prev => ({ ...prev, dialogOpen: false, txStatus: 'purchasing' }));
+    
+    try {
+      const tx = await state.contract.purchaseLand(propertyId, {
+        value: ethers.parseEther(price.toString())
+      });
+      
+      showSnackbar('Purchase transaction submitted. Waiting for confirmation...', 'info');
+      await tx.wait();
+      
+      await fetchData(state.contract, state.account);
+      showSnackbar('Property purchased successfully!', 'success');
+    } catch (error) {
+      handleError('Purchase error:', error);
+      showSnackbar('Purchase failed', 'error');
+    } finally {
+      setState(prev => ({ ...prev, txStatus: null }));
+    }
+  };
+
+  // Handle property registration
+  const handleRegister = async (landData) => {
+    setState(prev => ({ ...prev, txStatus: 'registering' }));
+    
+    try {
+      const tx = await state.contract.registerLand(
+        landData.title,
+        landData.description,
+        ethers.parseEther(landData.price.toString()),
+        landData.location,
+        landData.size
+      );
+      
+      showSnackbar('Registration submitted. Waiting for confirmation...', 'info');
+      await tx.wait();
+      
+      await fetchData(state.contract, state.account);
+      showSnackbar('Land registered successfully!', 'success');
+      return true;
+    } catch (error) {
+      handleError('Registration error:', error);
+      showSnackbar('Registration failed', 'error');
+      return false;
+    } finally {
+      setState(prev => ({ ...prev, txStatus: null }));
+    }
+  };
+
+  // Helper functions
+  const handleError = (context, error) => {
+    console.error(context, error);
+    setState(prev => ({
+      ...prev,
+      error: error.message,
+      isLoading: false,
+      txStatus: null
+    }));
+  };
+
+  const showSnackbar = (message, severity) => {
+    setState(prev => ({
+      ...prev,
+      snackbarOpen: true,
+      snackbarMessage: message,
+      snackbarSeverity: severity
+    }));
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setState(prev => ({ ...prev, activeTab: newValue }));
+  };
+
+  const handleCloseSnackbar = () => {
+    setState(prev => ({ ...prev, snackbarOpen: false }));
+  };
+
+  const handlePageChange = (event, newPage) => {
+    setState(prev => ({ ...prev, currentPage: newPage }));
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setState(prev => ({
+      ...prev,
+      rowsPerPage: parseInt(event.target.value, 10),
+      currentPage: 0
+    }));
   };
 
   if (state.isLoading) {
@@ -148,43 +276,122 @@ const Dashboard = () => {
 
   if (state.error) {
     return (
-      <Container>
+      <DashboardContainer>
         <Alert severity="error" sx={{ my: 2 }}>
           {state.error}
         </Alert>
-      </Container>
+      </DashboardContainer>
     );
   }
 
+  // Pagination calculations
+  const paginatedOwnedAssets = state.ownedAssets.slice(
+    state.currentPage * state.rowsPerPage,
+    (state.currentPage + 1) * state.rowsPerPage
+  );
+
+  const paginatedAvailableAssets = state.availableAssets.slice(
+    state.currentPage * state.rowsPerPage,
+    (state.currentPage + 1) * state.rowsPerPage
+  );
+
   return (
-    <Container sx={{ mt: 4 }}>
-      <AppBar position="static" color="default">
+    <DashboardContainer maxWidth="lg">
+      <Typography variant="h4" gutterBottom sx={{ mt: 2, mb: 4 }}>
+        Land Registry Dashboard
+      </Typography>
+
+      <AppBar position="static" color="default" sx={{ mb: 3 }}>
         <Tabs
-          value={state.value}
-          onChange={handleChange}
+          value={state.activeTab}
+          onChange={handleTabChange}
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
         >
           <Tab label="My Properties" />
           <Tab label="Available Properties" />
-          <Tab label="Register Land" />
+          <Tab label="Register New Land" />
         </Tabs>
       </AppBar>
 
-      <StyledTabPanel hidden={state.value !== 0}>
-        <Table assetList={state.assetList} />
+      <StyledTabPanel hidden={state.activeTab !== 0}>
+        <OwnerTable 
+          assets={paginatedOwnedAssets} 
+          isLoading={state.txStatus !== null}
+          currentPage={state.currentPage}
+          rowsPerPage={state.rowsPerPage}
+          totalItems={state.ownedAssets.length}
+          onPageChange={handlePageChange}
+          onRowsPerPageChange={handleRowsPerPageChange}
+        />
       </StyledTabPanel>
 
-      <StyledTabPanel hidden={state.value !== 1}>
-        <AvailableTable assetList={state.assetList1} />
+      <StyledTabPanel hidden={state.activeTab !== 1}>
+        <BuyerTable 
+          assets={paginatedAvailableAssets}
+          onPurchase={handlePurchase}
+          isLoading={state.txStatus !== null}
+          currentPage={state.currentPage}
+          rowsPerPage={state.rowsPerPage}
+          totalItems={state.availableAssets.length}
+          onPageChange={handlePageChange}
+          onRowsPerPageChange={handleRowsPerPageChange}
+        />
       </StyledTabPanel>
 
-      <StyledTabPanel hidden={state.value !== 2}>
-        <RegistrationForm contract={state.contract} account={state.account} />
+      <StyledTabPanel hidden={state.activeTab !== 2}>
+        <RegistrationForm 
+          onSubmit={handleRegister}
+          isLoading={state.txStatus === 'registering'}
+        />
       </StyledTabPanel>
-    </Container>
+
+      <Snackbar
+        open={state.snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={state.snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {state.snackbarMessage}
+        </Alert>
+      </Snackbar>
+
+      <Dialog
+        open={state.dialogOpen}
+        onClose={() => setState(prev => ({ ...prev, dialogOpen: false }))}
+      >
+        {state.dialogConfig && (
+          <>
+            <DialogTitle>{state.dialogConfig.title}</DialogTitle>
+            <DialogContent>
+              <Typography>{state.dialogConfig.content}</Typography>
+              {state.activeTab === 1 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  This action will transfer ownership and cannot be undone.
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions>
+              {state.dialogConfig.actions.map((action, index) => (
+                <Button 
+                  key={index} 
+                  onClick={action.handler}
+                  color={index === 0 ? 'inherit' : 'primary'}
+                >
+                  {action.text}
+                </Button>
+              ))}
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+    </DashboardContainer>
   );
 };
 
-export default Dashboard;
+export default UserDashboard;

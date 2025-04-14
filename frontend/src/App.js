@@ -7,10 +7,10 @@ import './styles/App.css';
 
 // Components
 import Signup from './pages/Signup/Signup';
-import Dashboard from './components/Dashboard/Dashboard';
+import UserDashboard from './components/Dashboard/Dashboard';
 import Header from './components/common/Header';
 import RegistrationForm from './pages/AfterLogin/AddNewLand';
-import Dashboard_Govt from './components/Dashboard/Dashboard_Govt';
+import GovernmentDashboard from './components/Dashboard/Dashboard_Govt';
 import Profile from './components/Profile/Profile';
 import Help from './components/Help/Help';
 import Home from './components/common/Home';
@@ -165,13 +165,13 @@ const App = () => {
         
         {/* Protected Routes */}
         <Route element={<ProtectedRoute isAllowed={authState.isAuthenticated} />}>
-          <Route path="/dashboard" element={<Dashboard walletAddress={authState.walletAddress} />} />
+          <Route path="/user-dashboard" element={<UserDashboard />} />
           <Route path="/profile" element={<Profile walletAddress={authState.walletAddress} />} />
           <Route path="/registration_form" element={<RegistrationForm />} />
         </Route>
         
         <Route element={<ProtectedRoute isAllowed={authState.isGovtAuthenticated} />}>
-          <Route path="/dashboard_govt" element={<Dashboard_Govt walletAddress={authState.walletAddress} />} />
+        <Route path="/government-dashboard" element={<GovernmentDashboard />} />
         </Route>
         
         <Route path="/guide" element={<Help />} />

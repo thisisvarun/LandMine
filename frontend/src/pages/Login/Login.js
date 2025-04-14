@@ -38,41 +38,82 @@ const Login = () => {
     setLoading(true);
   
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      console.log('Attempting to connect to:', apiUrl);
+      const apiUrl = 'http://localhost:5000';
+      console.log('Attempting to login to:', `${apiUrl}/login`);
   
-      // First test basic connection
-      const healthCheck = await fetch(`${apiUrl}/health`);
-      if (!healthCheck.ok) throw new Error('Backend not responding');
+      // Validate inputs before sending
+      if (!identifier || !password) {
+        throw new Error('Please provide both email/username and password');
+      }
   
-      // Proceed with login
       const response = await fetch(`${apiUrl}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
           [loginType === 'government' ? 'username' : 'email']: identifier,
           password,
           isGovernment: loginType === 'government',
-          walletAddress: account
+          ...(account && { walletAddress: account })
         })
       });
   
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Login failed');
+      // Check response content type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON but got: ${text.substring(0, 100)}...`);
+      }
   
-      // Successful login handling...
+      const data = await response.json();
       
+      if (!response.ok) {
+        throw new Error(data.message || `Login failed with status ${response.status}`);
+      }
+  
+      // Successful login handling
+      console.log('Login successful:', data);
+      toast.success('Login successful!');
+      
+      // Update auth context with user data
+      setAuthState({
+        isAuthenticated: true,
+        user: {
+          ...data.user,
+          role: loginType === 'government' ? 'government' : 'user'
+        },
+        token: data.token
+      });
+      
+      // Store token in localStorage
+      localStorage.setItem('authToken', data.token);
+      
+      // Redirect to appropriate dashboard
+      if (loginType === 'government') {
+        navigate('/government-dashboard');
+      } else {
+        navigate('/user-dashboard');
+      }
+  
     } catch (err) {
-      console.error('Connection error:', err);
-      toast.error(
-        err.message.includes('Failed to fetch')
-          ? 'Backend server unavailable. Please: 1) Check backend is running, 2) Verify port 5000 is open, 3) Ensure no CORS issues'
-          : err.message
-      );
+      console.error('Login error:', err);
+      
+      let errorMessage = err.message;
+      if (err.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to server. Please:';
+        errorMessage += '\n1. Check if backend is running';
+        errorMessage += '\n2. Verify no firewall blocking port 5000';
+        errorMessage += '\n3. Try refreshing the page';
+      }
+  
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <Container maxWidth="sm" sx={{ 
       mt: 8,

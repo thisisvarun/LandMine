@@ -8,7 +8,6 @@ const bcrypt = require('bcrypt');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const seedGovernmentUser = require('./config/seed');
 const User = require('./models/User'); // Assuming you've moved User model to separate file
 const Government = require('./models/Government');
 
@@ -51,10 +50,6 @@ const connectDB = async () => {
       useUnifiedTopology: true,
     });
     console.log('✅ MongoDB connected');
-    
-    // Seed government user and wait for completion
-    const seedResult = await seedGovernmentUser();
-    console.log(seedResult.message);
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
     process.exit(1);
@@ -86,47 +81,57 @@ const authenticate = (roles = []) => {
 
 // Routes
 app.post('/login', async (req, res) => {
-  const { email, password, isGovt } = req.body;
+  const { identifier, password, isGovernment } = req.body; // Consistent naming
 
-  if (!email || !password) {
+  if (!identifier || !password) {
     return res.status(400).json({ success: false, message: 'Missing credentials' });
   }
 
   try {
     let user, role;
     
-    if (isGovt) {
-      user = await Government.findOne({ username: email });
+    if (isGovernment) {
+      user = await Government.findOne({ 
+        $or: [
+          { email: identifier },
+          { username: identifier }
+        ]
+      });
       role = 'government';
-      
-      if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
-      }
     } else {
-      user = await User.findOne({ email });
+      user = await User.findOne({
+        $or: [
+          { email: identifier },
+          { username: identifier }
+        ]
+      }).select('+password'); // Important: include hashed password
       role = 'user';
-      
-      if (!user || password !== user.password) { // In production, always use hashing!
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
-      }
+    }
+
+    // Universal password check
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
       { id: user._id, role }, 
-      process.env.JWT_SECRET, 
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
     res.status(200).json({ 
       success: true, 
-      token, 
+      token,
       role,
       user: {
+        id: user._id,
         email: user.email,
         username: user.username,
+        publicAddress: user.publicAddress,
         ...(role === 'government' && { address: user.address })
       }
     });
+    
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
